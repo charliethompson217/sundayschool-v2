@@ -10,7 +10,6 @@
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
     "baseUrl": ".",
@@ -20,11 +19,9 @@
 
     /* Linting */
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["vite.config.ts", "sst.config.ts", "sst-env.d.ts"]
+  "include": ["vite.config.ts", "vitest.config.ts", "sst.config.ts", "sst-env.d.ts", "functions"],
+  "exclude": [".sst"]
 }

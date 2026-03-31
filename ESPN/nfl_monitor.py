@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hmac as _hmac
 import json
 import logging
 import os
@@ -24,6 +25,7 @@ from espn_client import APIError, EspnClient, ParsingError
 
 DB_FILE = os.environ.get("NFL_DB_FILE", "nfl_state.db")
 NOTIFY_URL = os.environ.get("NFL_NOTIFY_URL", "")
+WEBHOOK_SECRET = os.environ.get("NFL_WEBHOOK_SECRET", "")
 
 HTTP_TIMEOUT_SECS = int(os.environ.get("NFL_HTTP_TIMEOUT_SECS", 10))
 SCHEDULE_REFRESH_SECS = int(os.environ.get("NFL_SCHEDULE_REFRESH_SECS", 24 * 3600))
@@ -659,6 +661,18 @@ def poll_due_games_concurrently(
     return changed_any
 
 
+def _sign_request(body_str: str) -> Tuple[str, str]:
+    """Compute HMAC-SHA256 over ``timestamp.body`` and return (timestamp, signature)."""
+    timestamp = str(int(time.time()))
+    message = f"{timestamp}.{body_str}"
+    signature = _hmac.new(
+        WEBHOOK_SECRET.encode("utf-8"),
+        message.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return timestamp, signature
+
+
 def _post_event(event_type: str, games: List[Dict]) -> bool:
     if not games:
         return True
@@ -667,14 +681,21 @@ def _post_event(event_type: str, games: List[Dict]) -> bool:
         log.info(f"NOTIFY_URL not set; would have sent {event_type} for {len(games)} game(s)")
         return True
 
-    body = {
+    body_dict = {
         "type": event_type,
         "sent_at": utc_now_iso(),
         "games": games,
     }
+    body_str = json.dumps(body_dict)
+
+    headers: Dict[str, str] = {"Content-Type": "application/json"}
+    if WEBHOOK_SECRET:
+        timestamp, signature = _sign_request(body_str)
+        headers["X-SS-Timestamp"] = timestamp
+        headers["X-SS-Signature"] = signature
 
     try:
-        resp = _requests.post(NOTIFY_URL, json=body, timeout=HTTP_TIMEOUT_SECS)
+        resp = _requests.post(NOTIFY_URL, data=body_str, headers=headers, timeout=HTTP_TIMEOUT_SECS)
         if resp.status_code not in (200, 201, 202, 204):
             log.warning(f"{event_type} notify returned HTTP {resp.status_code}")
             return False
