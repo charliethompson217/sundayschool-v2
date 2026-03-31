@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { signIn, signUp, signOut, confirmSignUp, getCurrentUser, fetchUserAttributes } from 'aws-amplify/auth';
-import { AuthContext } from './auth-context';
-import type { CurrentUser } from './auth-context';
+import { AuthContext } from './AuthContext';
+import type { CurrentUser } from './AuthContext';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<CurrentUser | null>(null);

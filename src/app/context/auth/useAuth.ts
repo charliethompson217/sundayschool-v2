@@ -1,7 +1,5 @@
-// src/app/context/Auth/useAuth.tsx
-
 import { useContext } from 'react';
-import { AuthContext } from './AuthContext.tsx'; // Adjust path as needed
+import { AuthContext } from './AuthContext';
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

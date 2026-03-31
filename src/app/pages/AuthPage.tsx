@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Tabs, TextInput, PasswordInput, Button, Anchor, Text } from '@mantine/core';
-import { useAuth } from '../context/auth/auth-context.ts';
+import { useAuth } from '../context/auth/useAuth.ts';
 import { Navigate } from 'react-router-dom';
 
 export default function AuthPage() {

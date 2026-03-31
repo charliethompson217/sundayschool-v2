@@ -1,7 +1,7 @@
 // src/components/AuthWrapper.tsx
 
 import React from 'react';
-import { useAuth } from '../app/context/auth/auth-context.ts';
+import { useAuth } from '../app/context/auth/useAuth.ts';
 import { Navigate } from 'react-router-dom';
 import { Loader } from '@mantine/core';
 import AuthPage from '../app/pages/AuthPage.tsx';
