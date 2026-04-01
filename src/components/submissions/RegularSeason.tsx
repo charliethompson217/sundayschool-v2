@@ -63,10 +63,11 @@ function WeekRow({ lineup, onClick }: { lineup: WeekLineup; onClick: () => void 
 }
 
 interface RegularSeasonProps {
+  year: number;
   onSelectionChange?: (hasSelection: boolean) => void;
 }
 
-export default function RegularSeason({ onSelectionChange }: RegularSeasonProps) {
+export default function RegularSeason({ year, onSelectionChange }: RegularSeasonProps) {
   const [selectedWeek, setSelectedWeek] = useState<WeekLineup | null>(null);
   const [showClosed, setShowClosed] = useState(() => {
     return localStorage.getItem('regularSeason.showClosed') === 'true';
@@ -82,18 +83,18 @@ export default function RegularSeason({ onSelectionChange }: RegularSeasonProps)
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ['regularSeasonLineups'],
-    queryFn: getRegularSeasonLineups,
+    queryKey: ['regularSeasonLineups', year],
+    queryFn: () => getRegularSeasonLineups(year),
   });
 
-  const { submissions, submitPicks } = useRegularSeasonPicksSubmissions();
+  const { submissions, submitPicks } = useRegularSeasonPicksSubmissions(year);
 
   const openWeeks = lineups?.filter((l) => !isWeekClosed(l)) ?? [];
   const closedWeeks = lineups?.filter((l) => isWeekClosed(l)) ?? [];
 
   function handleSubmit(submission: RegularSeasonPicksSubmission) {
     if (selectedWeek) {
-      return submitPicks(selectedWeek.week, submission);
+      return submitPicks(year, selectedWeek.week, submission);
     }
     return Promise.resolve();
   }

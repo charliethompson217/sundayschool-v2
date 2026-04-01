@@ -85,13 +85,25 @@ export async function getSeasonPhase(): Promise<SeasonPhase> {
   return 'regular'; // change to 'playoffs' to test that branch
 }
 
-export async function getRegularSeasonLineups(): Promise<RegularSeasonLineups> {
+export async function getYears(): Promise<number[]> {
+  await delay(300);
+  return [2022, 2023, 2024, 2025];
+}
+
+const HARDCODED_LINEUPS_BY_YEAR: Record<number, RegularSeasonLineups> = {
+  2022: HARDCODED_LINEUPS,
+  2023: HARDCODED_LINEUPS,
+  2024: HARDCODED_LINEUPS,
+  2025: HARDCODED_LINEUPS,
+};
+
+export async function getRegularSeasonLineups(year: number): Promise<RegularSeasonLineups> {
   await delay(800);
-  return HARDCODED_LINEUPS;
+  return HARDCODED_LINEUPS_BY_YEAR[year];
 }
 
 // TODO: replace with real backend call — in-memory store simulates the server
-let submissionsStore: Record<number, RegularSeasonPicksSubmission> = {
+const INITIAL_SUBMISSIONS_STORE: Record<number, RegularSeasonPicksSubmission> = {
   1: {
     rankedPicks: [
       { matchup: ['KC', 'BAL'], winner: 'KC' },
@@ -160,14 +172,31 @@ let submissionsStore: Record<number, RegularSeasonPicksSubmission> = {
   },
 };
 
-export async function getRegularSeasonPicksSubmissions(): Promise<Record<number, RegularSeasonPicksSubmission>> {
+let submissionsStoreByYear: Record<number, Record<number, RegularSeasonPicksSubmission>> = {
+  2024: { ...INITIAL_SUBMISSIONS_STORE },
+  2025: { ...INITIAL_SUBMISSIONS_STORE },
+};
+
+export async function getRegularSeasonPicksSubmissions(
+  year: number,
+): Promise<Record<number, RegularSeasonPicksSubmission>> {
   await delay(600);
-  return submissionsStore;
+  return submissionsStoreByYear[year] ?? {};
 }
 
-export async function submitRegularSeasonPicks(week: number, submission: RegularSeasonPicksSubmission): Promise<void> {
+export async function submitRegularSeasonPicks(
+  year: number,
+  week: number,
+  submission: RegularSeasonPicksSubmission,
+): Promise<void> {
   await delay(1000);
-  submissionsStore = { ...submissionsStore, [week]: submission };
+  submissionsStoreByYear = {
+    ...submissionsStoreByYear,
+    [year]: {
+      ...(submissionsStoreByYear[year] ?? {}),
+      [week]: submission,
+    },
+  };
 }
 
 // TODO: replace with real backend call
