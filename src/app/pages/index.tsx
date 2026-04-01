@@ -36,7 +36,7 @@ export const routes: RouteConfig[] = [
     label: 'Submit Picks',
     icon: IconClipboardList,
     showInNav: true,
-    requiresAuth: false,
+    requiresAuth: true,
   },
   {
     path: '/results',
@@ -53,7 +53,7 @@ export const routes: RouteConfig[] = [
     icon: IconUserShield,
     showInNav: true,
     requiresAuth: true,
-    requiresAdmin: false,
+    requiresAdmin: true,
   },
   {
     path: '/settings',
@@ -61,7 +61,7 @@ export const routes: RouteConfig[] = [
     label: 'Settings',
     icon: IconSettings,
     showInNav: true,
-    requiresAuth: false,
+    requiresAuth: true,
   },
   {
     path: '/login',

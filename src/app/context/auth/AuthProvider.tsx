@@ -1,12 +1,13 @@
-// src/context/auth/AuthProvider.tsx (unchanged from previous update)
-
 import React, { useState, useEffect } from 'react';
-import { signIn, signUp, signOut, confirmSignUp, getCurrentUser, fetchUserAttributes } from 'aws-amplify/auth';
+import { signIn, signUp, signOut, confirmSignUp, getCurrentUser } from 'aws-amplify/auth';
+
 import { AuthContext } from './AuthContext';
-import type { CurrentUser } from './AuthContext';
+import type { SignUpAttributes } from './AuthContext';
+import type { User } from '@/types/users';
+import { getMe } from '@/app/API/userFunctions';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -14,12 +15,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkUser();
   }, []);
 
+  /**
+   * Verify there is an active Cognito session, then fetch the full user
+   * profile from DynamoDB. Admin/role fields always come from the backend —
+   * never from Cognito attributes or JWT claims.
+   */
   const checkUser = async () => {
     try {
-      const currentUser = await getCurrentUser();
-      const attributes = await fetchUserAttributes();
-      const isAdmin = attributes['custom:isAdmin'] === '1';
-      setUser({ ...currentUser, isAdmin });
+      await getCurrentUser();
+      const fullUser = await getMe();
+      setUser(fullUser);
       setIsAuthenticated(true);
     } catch {
       setUser(null);
@@ -30,48 +35,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signInFunc = async (email: string, password: string) => {
-    try {
-      const signInResult = await signIn({ username: email, password });
-      await checkUser();
-      return signInResult;
-    } catch (error) {
-      console.error('Sign in error:', error);
-      throw error;
-    }
+    const result = await signIn({ username: email, password });
+    await checkUser();
+    return result;
   };
 
-  const signUpFunc = async (email: string, password: string, attributes?: Record<string, string>) => {
-    try {
-      return await signUp({
-        username: email,
-        password,
-        options: {
-          userAttributes: { ...attributes, email },
+  /**
+   * Register a new Cognito user.
+   *
+   * given_name, family_name, and preferred_username are standard Cognito
+   * attributes that the PostConfirmation trigger reads to populate DynamoDB.
+   * The user record is NOT created here — it is created on the backend after
+   * the user confirms their email, ensuring isVerified is always accurate.
+   */
+  const signUpFunc = async (email: string, password: string, attributes: SignUpAttributes) => {
+    return signUp({
+      username: email,
+      password,
+      options: {
+        userAttributes: {
+          email,
+          given_name: attributes.firstName,
+          family_name: attributes.lastName,
+          preferred_username: attributes.username,
         },
-      });
-    } catch (error) {
-      console.error('Sign up error:', error);
-      throw error;
-    }
+      },
+    });
   };
 
   const signOutFunc = async () => {
-    try {
-      await signOut();
-      setUser(null);
-      setIsAuthenticated(false);
-    } catch (error) {
-      console.error('Sign out error:', error);
-    }
+    await signOut();
+    setUser(null);
+    setIsAuthenticated(false);
   };
 
   const confirmSignUpFunc = async (email: string, code: string) => {
-    try {
-      return await confirmSignUp({ username: email, confirmationCode: code });
-    } catch (error) {
-      console.error('Confirm sign up error:', error);
-      throw error;
-    }
+    return confirmSignUp({ username: email, confirmationCode: code });
   };
 
   return (

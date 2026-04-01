@@ -2,7 +2,8 @@
 
 import { NavLink, Tooltip } from '@mantine/core';
 import { Link, useLocation } from 'react-router-dom';
-import { routes } from '../pages/index.tsx'; // adjust path
+import { routes } from '../pages/index.tsx';
+import { useAuth } from '../context/auth/useAuth.ts';
 
 type Props = {
   showLabels: boolean;
@@ -11,10 +12,16 @@ type Props = {
 
 export function NavLinks({ showLabels, onMobileClose }: Props) {
   const location = useLocation();
+  const { user, isAuthenticated } = useAuth();
 
   const handleClick = () => onMobileClose?.();
 
-  const navRoutes = routes.filter((r) => r.showInNav === true);
+  const navRoutes = routes.filter((r) => {
+    if (!r.showInNav) return false;
+    if (r.requiresAdmin && !user?.isAdmin) return false;
+    if (r.requiresAuth && !isAuthenticated) return false;
+    return true;
+  });
 
   return (
     <>

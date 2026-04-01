@@ -18,7 +18,9 @@ export default [
       globals: globals.browser,
       parser: tseslint.parser,
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ['functions/*', 'functions/*/*'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },

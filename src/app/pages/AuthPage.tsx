@@ -1,43 +1,53 @@
-// src/pages/AuthPage.tsx
-
 import { useState } from 'react';
 import { Tabs, TextInput, PasswordInput, Button, Anchor, Text } from '@mantine/core';
 import { useAuth } from '../context/auth/useAuth.ts';
 import { Navigate } from 'react-router-dom';
 
 export default function AuthPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, signIn, signUp, confirmSignUp } = useAuth();
+
+  const [activeTab, setActiveTab] = useState<string | null>('signin');
+
+  // Shared
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  // Sign-up only
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationCode, setConfirmationCode] = useState('');
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 
-  const [activeTab, setActiveTab] = useState<string | null>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmationCode, setConfirmationCode] = useState('');
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const { signIn, signUp, confirmSignUp } = useAuth();
-
   const handleSignIn = async () => {
     setError(null);
     try {
       await signIn(email, password);
-      // No need to navigate, as auth state change will handle rendering
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : 'Unknown error') || 'Sign-in failed. Please try again.');
+      setError(err instanceof Error ? err.message : 'Sign-in failed. Please try again.');
     }
   };
 
   const handleSignUp = async () => {
     setError(null);
+    if (!firstName.trim() || !lastName.trim() || !username.trim()) {
+      setError('First name, last name, and username are required.');
+      return;
+    }
     try {
-      await signUp(email, password);
+      await signUp(email, password, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        username: username.trim(),
+      });
       setShowConfirmation(true);
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : 'Unknown error') || 'Sign-up failed. Please try again.');
+      setError(err instanceof Error ? err.message : 'Sign-up failed. Please try again.');
     }
   };
 
@@ -47,9 +57,8 @@ export default function AuthPage() {
       await confirmSignUp(email, confirmationCode);
       setShowConfirmation(false);
       setActiveTab('signin');
-      // Optionally show success message
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : 'Unknown error') || 'Confirmation failed. Please try again.');
+      setError(err instanceof Error ? err.message : 'Confirmation failed. Please try again.');
     }
   };
 
@@ -71,7 +80,7 @@ export default function AuthPage() {
             mt="md"
           />
           {error && (
-            <Text color="red" mt="sm">
+            <Text c="red" mt="sm">
               {error}
             </Text>
           )}
@@ -79,14 +88,40 @@ export default function AuthPage() {
             Sign In
           </Button>
           <Anchor component="button" type="button" onClick={() => setActiveTab('signup')} mt="sm">
-            Don't have an account? Sign Up
+            Don&apos;t have an account? Sign Up
           </Anchor>
         </Tabs.Panel>
 
         <Tabs.Panel value="signup" pt="xs">
           {!showConfirmation ? (
             <>
-              <TextInput label="Email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} required />
+              <TextInput
+                label="First Name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.currentTarget.value)}
+                required
+              />
+              <TextInput
+                label="Last Name"
+                value={lastName}
+                onChange={(e) => setLastName(e.currentTarget.value)}
+                required
+                mt="md"
+              />
+              <TextInput
+                label="Username"
+                value={username}
+                onChange={(e) => setUsername(e.currentTarget.value)}
+                required
+                mt="md"
+              />
+              <TextInput
+                label="Email"
+                value={email}
+                onChange={(e) => setEmail(e.currentTarget.value)}
+                required
+                mt="md"
+              />
               <PasswordInput
                 label="Password"
                 value={password}
@@ -95,7 +130,7 @@ export default function AuthPage() {
                 mt="md"
               />
               {error && (
-                <Text color="red" mt="sm">
+                <Text c="red" mt="sm">
                   {error}
                 </Text>
               )}
@@ -105,7 +140,7 @@ export default function AuthPage() {
             </>
           ) : (
             <>
-              <Text>Enter the confirmation code sent to your email.</Text>
+              <Text>Check your email for the confirmation code.</Text>
               <TextInput
                 label="Confirmation Code"
                 value={confirmationCode}
@@ -114,12 +149,12 @@ export default function AuthPage() {
                 mt="md"
               />
               {error && (
-                <Text color="red" mt="sm">
+                <Text c="red" mt="sm">
                   {error}
                 </Text>
               )}
               <Button fullWidth mt="md" onClick={handleConfirmSignUp}>
-                Confirm Sign Up
+                Confirm Email
               </Button>
             </>
           )}
