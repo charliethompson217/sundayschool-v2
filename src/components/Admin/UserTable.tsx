@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 
 import { Avatar, Box, Chip, Stack, Typography } from '@mui/material';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { DataGrid, type GridColDef, type GridPaginationModel, type GridRowSelectionModel } from '@mui/x-data-grid';
-import { Alert, Badge, Group, Paper, Text, Title, useComputedColorScheme } from '@mantine/core';
+import type { GridColDef, GridRowSelectionModel } from '@mui/x-data-grid';
+import { Alert, Badge, Group } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 
 import { getUsers } from '@/app/API/adminFunctions';
 import type { User } from '@/types/users';
+import GenericTable from '@/components/shared/GenericTable';
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString('en-US', {
@@ -21,24 +21,11 @@ function getInitials(user: User): string {
   return `${user.firstName[0] ?? ''}${user.lastName[0] ?? ''}`.toUpperCase();
 }
 
-const GRID_ROW_HEIGHT = 74;
-const GRID_HEADER_HEIGHT = 56;
-
 export default function UserTable() {
-  const colorScheme = useComputedColorScheme('light');
-  const muiTheme = useMemo(
-    () => createTheme({ palette: { mode: colorScheme === 'dark' ? 'dark' : 'light' } }),
-    [colorScheme],
-  );
-
   const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>(() => ({
     type: 'include',
     ids: new Set(),
   }));
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: 10,
-  });
 
   const {
     data: users = [],
@@ -205,209 +192,54 @@ export default function UserTable() {
     );
   }
 
-  return (
-    <div
-      style={{
-        marginRight: '16px',
-        height: 'calc(100vh - 200px)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
-      <Group justify="space-between" align="flex-start" mb="md" wrap="wrap" style={{ flexShrink: 0 }}>
-        <div>
-          <Title order={5} fw={700}>
-            Users
-          </Title>
-          <Text size="sm" c="dimmed">
-            Search, sort, select, and export the admin user list.
-          </Text>
-        </div>
-        <Group gap="xs">
-          <Badge
-            variant="outline"
-            style={{
-              background: 'var(--app-admin-table-summary-chip-bg)',
-              color: 'var(--app-admin-table-summary-chip-text)',
-              borderColor: 'var(--app-admin-table-summary-chip-border)',
-              fontWeight: 600,
-            }}
-          >
-            {users.length} users
-          </Badge>
-          <Badge
-            variant={rowSelectionModel.ids.size ? 'filled' : 'outline'}
-            style={{
-              background: rowSelectionModel.ids.size ? 'var(--app-admin-table-summary-selected-bg)' : 'transparent',
-              color: rowSelectionModel.ids.size
-                ? 'var(--app-admin-table-summary-selected-text)'
-                : 'var(--app-admin-table-member-role-text)',
-              borderColor: rowSelectionModel.ids.size
-                ? 'var(--app-admin-table-summary-selected-border)'
-                : 'var(--app-admin-table-member-role-border)',
-              fontWeight: 600,
-            }}
-          >
-            {rowSelectionModel.ids.size ? `${rowSelectionModel.ids.size} selected` : 'No rows selected'}
-          </Badge>
-        </Group>
-      </Group>
-
-      <Paper
-        radius={16}
-        withBorder
+  const headerRight = (
+    <Group gap="xs">
+      <Badge
+        variant="outline"
         style={{
-          flex: 1,
-          minHeight: 0,
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '0 20px 50px var(--app-admin-table-shadow)',
-          backgroundColor: 'var(--app-admin-table-surface)',
-          backgroundImage: 'linear-gradient(180deg, var(--app-admin-table-gradient-start), rgba(255, 255, 255, 0))',
-          borderColor: 'var(--app-admin-table-border)',
+          background: 'var(--app-admin-table-summary-chip-bg)',
+          color: 'var(--app-admin-table-summary-chip-text)',
+          borderColor: 'var(--app-admin-table-summary-chip-border)',
+          fontWeight: 600,
         }}
       >
-        <ThemeProvider theme={muiTheme}>
-          <DataGrid
-            rows={users}
-            columns={columns}
-            loading={isLoading}
-            checkboxSelection
-            disableRowSelectionOnClick
-            showToolbar
-            rowHeight={GRID_ROW_HEIGHT}
-            columnHeaderHeight={GRID_HEADER_HEIGHT}
-            pageSizeOptions={[5, 10, 25]}
-            paginationModel={paginationModel}
-            onPaginationModelChange={setPaginationModel}
-            rowSelectionModel={rowSelectionModel}
-            onRowSelectionModelChange={(nextSelection) => setRowSelectionModel(nextSelection)}
-            initialState={{
-              sorting: { sortModel: [{ field: 'createdAt', sort: 'desc' }] },
-            }}
-            slotProps={{
-              toolbar: {
-                showQuickFilter: true,
-                quickFilterProps: { debounceMs: 250 },
-                csvOptions: { fileName: 'admin-users', utf8WithBom: true },
-                printOptions: { disableToolbarButton: true },
-              },
-            }}
-            sx={{
-              border: 0,
-              height: '100%',
-              color: 'var(--mantine-color-text)',
-              backgroundColor: 'var(--app-admin-table-surface)',
-              '& .MuiDataGrid-toolbarContainer': {
-                gap: 1,
-                px: 2,
-                py: 1.5,
-                borderBottom: '1px solid',
-                borderColor: 'var(--app-admin-table-border)',
-                backgroundColor: 'var(--app-admin-table-toolbar-bg)',
-              },
-              '& .MuiDataGrid-topContainer': {
-                backgroundColor: 'var(--app-admin-table-header-bg)',
-              },
-              '& .MuiDataGrid-columnHeaders': {
-                position: 'sticky',
-                top: 0,
-                zIndex: 5,
-                backgroundColor: 'var(--app-admin-table-header-bg)',
-              },
-              '& .MuiDataGrid-columnHeaderRow': {
-                backgroundColor: 'var(--app-admin-table-header-bg)',
-              },
-              '& .MuiDataGrid-columnHeader': {
-                fontSize: 13,
-                fontWeight: 700,
-                color: 'var(--app-admin-table-header-text)',
-                backgroundColor: 'var(--app-admin-table-header-bg)',
-              },
-              '& .MuiDataGrid-row': {
-                backgroundColor: 'var(--app-admin-table-surface)',
-              },
-              '& .MuiDataGrid-row:hover': {
-                backgroundColor: 'var(--app-admin-table-hover-bg)',
-              },
-              '& .MuiDataGrid-cell': {
-                borderColor: 'var(--app-admin-table-border)',
-                alignItems: 'center',
-              },
-              '& .MuiDataGrid-withBorderColor': {
-                borderColor: 'var(--app-admin-table-border)',
-              },
-              '& .MuiDataGrid-columnSeparator': {
-                color: 'var(--app-admin-table-border)',
-              },
-              '& .MuiDataGrid-scrollbarFiller': {
-                backgroundColor: 'var(--app-admin-table-header-bg)',
-              },
-              '& .MuiDataGrid-overlay': {
-                backgroundColor: 'var(--app-admin-table-surface)',
-              },
-              '& .MuiDataGrid-menuIconButton, & .MuiDataGrid-sortIcon, & .MuiDataGrid-iconButtonContainer': {
-                color: 'var(--app-admin-table-header-text)',
-              },
-              '& .MuiDataGrid-toolbarContainer .MuiInputBase-root': {
-                color: 'var(--mantine-color-text)',
-              },
-              '& .MuiDataGrid-toolbarContainer .MuiInputBase-input::placeholder': {
-                color: 'var(--app-admin-table-muted-text)',
-                opacity: 1,
-              },
-              '& .MuiDataGrid-footerContainer': {
-                borderTop: '1px solid',
-                borderColor: 'var(--app-admin-table-border)',
-                backgroundColor: 'var(--app-admin-table-footer-bg)',
-              },
-              // Toolbar buttons (Columns, Filters, Export)
-              '& .MuiDataGrid-toolbarContainer .MuiButtonBase-root': {
-                color: 'var(--mantine-color-text)',
-              },
-              '& .MuiDataGrid-toolbarContainer svg': {
-                color: 'var(--mantine-color-text)',
-              },
-              // Footer pagination text and select
-              '& .MuiTablePagination-root': {
-                color: 'var(--mantine-color-text)',
-              },
-              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-                color: 'var(--mantine-color-text)',
-              },
-              '& .MuiTablePagination-select, & .MuiSelect-select': {
-                color: 'var(--mantine-color-text)',
-              },
-              '& .MuiTablePagination-selectIcon': {
-                color: 'var(--mantine-color-text)',
-              },
-              // Footer and toolbar icon buttons
-              '& .MuiTablePagination-root .MuiIconButton-root': {
-                color: 'var(--mantine-color-text)',
-              },
-              '& .MuiTablePagination-root .MuiIconButton-root.Mui-disabled': {
-                color: 'var(--app-admin-table-muted-text)',
-              },
-              // Row checkboxes
-              '& .MuiCheckbox-root': {
-                color: 'var(--app-admin-table-muted-text)',
-              },
-              '& .MuiCheckbox-root.Mui-checked, & .MuiCheckbox-root.MuiCheckbox-indeterminate': {
-                color: 'var(--app-admin-table-summary-selected-bg)',
-              },
-              // Remove cell/header focus outlines
-              '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within': {
-                outline: 'none',
-              },
-              '& .MuiDataGrid-columnHeader:focus, & .MuiDataGrid-columnHeader:focus-within': {
-                outline: 'none',
-              },
-            }}
-          />
-        </ThemeProvider>
-      </Paper>
-    </div>
+        {users.length} users
+      </Badge>
+      <Badge
+        variant={rowSelectionModel.ids.size ? 'filled' : 'outline'}
+        style={{
+          background: rowSelectionModel.ids.size ? 'var(--app-admin-table-summary-selected-bg)' : 'transparent',
+          color: rowSelectionModel.ids.size
+            ? 'var(--app-admin-table-summary-selected-text)'
+            : 'var(--app-admin-table-member-role-text)',
+          borderColor: rowSelectionModel.ids.size
+            ? 'var(--app-admin-table-summary-selected-border)'
+            : 'var(--app-admin-table-member-role-border)',
+          fontWeight: 600,
+        }}
+      >
+        {rowSelectionModel.ids.size ? `${rowSelectionModel.ids.size} selected` : 'No rows selected'}
+      </Badge>
+    </Group>
+  );
+
+  return (
+    <GenericTable
+      tableId="admin-users"
+      title="Users"
+      description="Search, sort, select, and export the admin user list."
+      rows={users}
+      columns={columns}
+      loading={isLoading}
+      checkboxSelection
+      rowSelectionModel={rowSelectionModel}
+      onRowSelectionModelChange={setRowSelectionModel}
+      rowHeight={74}
+      defaultPageSize={10}
+      pageSizeOptions={[5, 10, 25]}
+      initialSort={{ field: 'createdAt', sort: 'desc' }}
+      csvFileName="admin-users"
+      headerRight={headerRight}
+    />
   );
 }
