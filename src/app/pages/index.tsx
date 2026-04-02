@@ -56,6 +56,13 @@ export const routes: RouteConfig[] = [
     requiresAdmin: true,
   },
   {
+    path: '/admin/:tab',
+    element: AdminRoute,
+    showInNav: false,
+    requiresAuth: true,
+    requiresAdmin: true,
+  },
+  {
     path: '/settings',
     element: SettingsRoute,
     label: 'Settings',
