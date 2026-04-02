@@ -64,3 +64,49 @@ export const EspnIngestBodySchema = z.discriminatedUnion('type', [ScheduleUpsert
 export type ScheduleUpsertGame = z.infer<typeof ScheduleUpsertGameSchema>;
 export type GameFinalGame = z.infer<typeof GameFinalGameSchema>;
 export type EspnIngestBody = z.infer<typeof EspnIngestBodySchema>;
+
+// ── DynamoDB record shape (read back from EspnGames table) ───────────────────
+//
+// A record is the union of all fields that may have been written by either
+// a schedule_upsert or a game_final event. game_final-only fields are optional
+// because a game may not yet have a final result.
+
+export interface EspnGameRecord {
+  pk: string;
+  sk: string;
+  gsi1pk: string;
+  gsi1sk: string;
+  game_id: string;
+  competition_id: string;
+  year: string;
+  season_type: string;
+  week: string;
+  week_text: string;
+  start_time: string;
+  home_team_id: string;
+  away_team_id: string;
+  home: string;
+  away: string;
+  entity_type: string;
+  source_event_type: 'schedule_upsert' | 'game_final';
+  espn_updated_at: string;
+  ingested_at: string;
+  schedule_hash?: string;
+  final_hash?: string;
+  // schedule_upsert fields
+  competition_type?: string;
+  competition_type_slug?: string;
+  neutral_site?: boolean;
+  venue_id?: string | null;
+  venue_full_name?: string | null;
+  venue_city?: string | null;
+  venue_state?: string | null;
+  venue_country?: string | null;
+  is_international?: boolean;
+  // game_final fields
+  home_score?: number;
+  away_score?: number;
+  status?: string;
+  completed?: boolean;
+  winner?: 'home' | 'away' | null;
+}

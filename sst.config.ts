@@ -102,6 +102,32 @@ export default $config({
       link: [usersTable, userPool, client],
     });
 
+    // ── Public games API (no auth) ───────────────────────────────────────────
+    //
+    // Read-only. Supports:
+    //   GET /espn/games/{gameId}           — single game lookup via GSI
+    //   GET /espn/games?year=              — all games for a year
+    //   GET /espn/games?year=&seasonType=  — all games for a season type
+    //   GET /espn/games?year=&seasonType=&week= — all games for a specific week
+
+    const gamesApi = new sst.aws.ApiGatewayV2('GamesApi', {
+      cors: {
+        allowOrigins: ['*'],
+        allowMethods: ['GET', 'OPTIONS'],
+        allowHeaders: ['Content-Type'],
+      },
+    });
+
+    gamesApi.route('GET /espn/games', {
+      handler: 'functions/espn-read-api.listHandler',
+      link: [espnGames],
+    });
+
+    gamesApi.route('GET /espn/games/{gameId}', {
+      handler: 'functions/espn-read-api.getHandler',
+      link: [espnGames],
+    });
+
     // ── Static site (frontend) ───────────────────────────────────────────────
 
     const site = new sst.aws.StaticSite('Site', {
@@ -118,6 +144,7 @@ export default $config({
         VITE_IDENTITY_POOL_ID: identityPool.id,
         VITE_USER_POOL_CLIENT_ID: client.id,
         VITE_USER_API_URL: userApi.url,
+        VITE_ESPN_API_URL: gamesApi.url,
       },
     });
 
@@ -125,6 +152,7 @@ export default $config({
       SiteUrl: site.url,
       IngestApiUrl: ingestApi.url,
       UserApiUrl: userApi.url,
+      GamesApiUrl: gamesApi.url,
     };
   },
 });
