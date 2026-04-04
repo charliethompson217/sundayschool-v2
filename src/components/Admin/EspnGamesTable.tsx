@@ -12,9 +12,9 @@ import GenericTable from '@/components/shared/GenericTable';
 
 const SEASON_TYPE_OPTIONS = [
   { value: '', label: 'All season types' },
-  { value: '1', label: 'Preseason (1)' },
-  { value: '2', label: 'Regular Season (2)' },
-  { value: '3', label: 'Playoffs (3)' },
+  { value: '1', label: 'Preseason' },
+  { value: '2', label: 'Regular Season' },
+  { value: '3', label: 'Playoffs' },
 ];
 
 const SEASON_TYPE_LABELS: Record<string, string> = {

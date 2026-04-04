@@ -1,5 +1,5 @@
 import { Stack, Tabs, Title } from '@mantine/core';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import UserTable from '@/components/Admin/UserTable';
 import Overview from '@/components/Admin/Overview';
@@ -19,11 +19,15 @@ function isValidTab(value: string | undefined): value is AdminTab {
 export default function AdminRoute() {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
+  const [, setSearchParams] = useSearchParams();
 
   const activeTab: AdminTab = isValidTab(tab) ? tab : 'users';
 
   function handleTabChange(value: string | null) {
-    if (value) navigate(`/admin/${value}`);
+    if (value) {
+      setSearchParams({});
+      navigate(`/admin/${value}`);
+    }
   }
 
   return (
@@ -42,25 +46,25 @@ export default function AdminRoute() {
         </Tabs.List>
 
         <Tabs.Panel value="overview" pt="md">
-          <Overview />
+          {activeTab === 'overview' && <Overview />}
         </Tabs.Panel>
         <Tabs.Panel value="users" pt="md">
-          <UserTable />
+          {activeTab === 'users' && <UserTable />}
         </Tabs.Panel>
         <Tabs.Panel value="schedule" pt="md">
-          <Schedule />
+          {activeTab === 'schedule' && <Schedule />}
         </Tabs.Panel>
         <Tabs.Panel value="picks" pt="md">
-          <Picks />
+          {activeTab === 'picks' && <Picks />}
         </Tabs.Panel>
         <Tabs.Panel value="results" pt="md">
-          <Results />
+          {activeTab === 'results' && <Results />}
         </Tabs.Panel>
         <Tabs.Panel value="espn" pt="md">
-          <EspnGamesTable />
+          {activeTab === 'espn' && <EspnGamesTable />}
         </Tabs.Panel>
         <Tabs.Panel value="settings" pt="md">
-          <Settings />
+          {activeTab === 'settings' && <Settings />}
         </Tabs.Panel>
       </Tabs>
     </Stack>

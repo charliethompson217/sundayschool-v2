@@ -4,7 +4,7 @@ export default $config({
   app(input) {
     return {
       name: 'sundayschool-v2',
-      region: 'us-east-1',
+      region: 'us-east-2',
       home: 'aws',
     };
   },
