@@ -58,8 +58,8 @@ const DEFAULT_COLUMN_VISIBILITY: GridColumnVisibilityModel = {
   week_text: true,
   score: true,
   status: true,
-  source_event_type: true,
-  venue_full_name: true,
+  source_event_type: false,
+  venue_full_name: false,
   game_id: false,
   competition_id: false,
   year: false,
@@ -76,7 +76,7 @@ const DEFAULT_COLUMN_VISIBILITY: GridColumnVisibilityModel = {
   venue_city: false,
   venue_state: false,
   venue_country: false,
-  is_international: false,
+  is_international: true,
   completed: false,
   winner: false,
   espn_updated_at: false,
@@ -214,6 +214,12 @@ export default function EspnGamesTable() {
     () => [
       // ── Always-visible summary columns ───────────────────────────────────
       {
+        field: 'week_text',
+        headerName: 'Week',
+        minWidth: 110,
+        flex: 0.6,
+      },
+      {
         field: 'matchup',
         headerName: 'Matchup',
         minWidth: 160,
@@ -228,25 +234,6 @@ export default function EspnGamesTable() {
             </Typography>
           </Box>
         ),
-      },
-      {
-        field: 'start_time',
-        headerName: 'Kickoff',
-        minWidth: 210,
-        flex: 1.1,
-        type: 'dateTime',
-        valueGetter: (_v, row) => new Date(row.start_time),
-        renderCell: ({ row }) => (
-          <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-            <Typography variant="body2">{formatDate(row.start_time)}</Typography>
-          </Box>
-        ),
-      },
-      {
-        field: 'week_text',
-        headerName: 'Week',
-        minWidth: 110,
-        flex: 0.6,
       },
       {
         field: 'score',
@@ -267,6 +254,19 @@ export default function EspnGamesTable() {
                 —
               </Typography>
             )}
+          </Box>
+        ),
+      },
+      {
+        field: 'start_time',
+        headerName: 'Kickoff',
+        minWidth: 210,
+        flex: 1.1,
+        type: 'dateTime',
+        valueGetter: (_v, row) => new Date(row.start_time),
+        renderCell: ({ row }) => (
+          <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+            <Typography variant="body2">{formatDate(row.start_time)}</Typography>
           </Box>
         ),
       },
@@ -375,7 +375,22 @@ export default function EspnGamesTable() {
         minWidth: 120,
         flex: 0.6,
         renderCell: ({ row }) => (
-          <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>{boolCell(row.is_international)}</Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+            {boolCell(row.is_international)}
+            {row.is_international && (
+              <Chip
+                label={row.venue_country}
+                size="small"
+                variant="outlined"
+                sx={{
+                  fontWeight: 600,
+                  fontSize: 11,
+                  color: 'var(--app-admin-table-admin-role-text)',
+                  borderColor: 'var(--app-admin-table-admin-role-border)',
+                }}
+              />
+            )}
+          </Box>
         ),
       },
       {
