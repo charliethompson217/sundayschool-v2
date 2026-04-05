@@ -42,7 +42,7 @@ export default $config({
       usernames: ['email'],
       triggers: {
         postConfirmation: {
-          handler: 'functions/cognito-post-confirmation.handler',
+          handler: 'functions/triggers/cognito-post-confirmation.handler',
           link: [usersTable],
         },
       },
@@ -103,7 +103,7 @@ export default $config({
     const ingestApi = new sst.aws.ApiGatewayV2('IngestApi');
 
     ingestApi.route('POST /internal/espn-ingest', {
-      handler: 'functions/espn-ingest.handler',
+      handler: 'functions/routes/espn/espn-ingest.handler',
       link: [espnGames, espnWebhookSecret, schedulesTable],
     });
 
@@ -122,32 +122,32 @@ export default $config({
     });
 
     userApi.route('GET /me', {
-      handler: 'functions/user-me.handler',
+      handler: 'functions/routes/users/user-me.handler',
       link: [usersTable, userPool, client],
     });
 
     userApi.route('GET /admin/users', {
-      handler: 'functions/admin-get-users.handler',
+      handler: 'functions/routes/admin/users-get.handler',
       link: [usersTable, userPool, client],
     });
 
     userApi.route('GET /schedules', {
-      handler: 'functions/admin-schedules-list.handler',
+      handler: 'functions/routes/schedules/schedules-list.handler',
       link: [schedulesTable, usersTable, userPool, client],
     });
 
     userApi.route('GET /schedules/{year}/{seasonType}/{week}', {
-      handler: 'functions/admin-schedules-get.handler',
+      handler: 'functions/routes/schedules/schedules-get.handler',
       link: [schedulesTable, espnGames, usersTable, userPool, client],
     });
 
     userApi.route('POST /admin/schedules/{year}/{seasonType}/{week}', {
-      handler: 'functions/admin-schedules-insert.handler',
+      handler: 'functions/routes/admin/schedules-insert.handler',
       link: [schedulesTable, espnGames, usersTable, userPool, client],
     });
 
     userApi.route('PUT /admin/schedules/{year}/{seasonType}/{week}', {
-      handler: 'functions/admin-schedules-update.handler',
+      handler: 'functions/routes/admin/schedules-update.handler',
       link: [schedulesTable, espnGames, usersTable, userPool, client],
     });
 
@@ -168,12 +168,12 @@ export default $config({
     });
 
     gamesApi.route('GET /espn/games', {
-      handler: 'functions/espn-read-api.listHandler',
+      handler: 'functions/routes/espn/espn-get.listHandler',
       link: [espnGames],
     });
 
     gamesApi.route('GET /espn/games/{gameId}', {
-      handler: 'functions/espn-read-api.getHandler',
+      handler: 'functions/routes/espn/espn-get.getHandler',
       link: [espnGames],
     });
 
