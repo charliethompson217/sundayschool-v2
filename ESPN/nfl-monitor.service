@@ -1,0 +1,39 @@
+[Unit]
+Description=NFL Score Monitor (Sunday School)
+Documentation=https://github.com/your-org/sundayschool-v2/tree/main/ESPN
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nfl-monitor
+Group=nfl-monitor
+WorkingDirectory=/opt/nfl-monitor
+
+# Load environment variables from the .env file.
+# The file must be owned by the service user with mode 600.
+EnvironmentFile=/opt/nfl-monitor/.env
+
+# Use the virtual-environment Python so all dependencies are available.
+ExecStart=/opt/nfl-monitor/venv/bin/python nfl_monitor.py
+
+# Always restart unless the operator explicitly stopped the service.
+Restart=always
+RestartSec=10
+
+# Give the process up to 30 seconds to handle SIGTERM before SIGKILL.
+TimeoutStopSec=30
+
+# Write stdout/stderr to the systemd journal.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nfl-monitor
+
+# Hardening — drop privileges the service does not need.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

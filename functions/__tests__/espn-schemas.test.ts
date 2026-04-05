@@ -87,8 +87,8 @@ describe('GameFinalGameSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('accepts winner = null (tie game)', () => {
-    const game = { ...validFinalGame, winner: null };
+  it('accepts winner = tie', () => {
+    const game = { ...validFinalGame, winner: 'tie' };
     const result = GameFinalGameSchema.safeParse(game);
     expect(result.success).toBe(true);
   });
@@ -101,6 +101,12 @@ describe('GameFinalGameSchema', () => {
 
   it('rejects invalid winner value', () => {
     const game = { ...validFinalGame, winner: 'draw' };
+    const result = GameFinalGameSchema.safeParse(game);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects null winner value', () => {
+    const game = { ...validFinalGame, winner: null };
     const result = GameFinalGameSchema.safeParse(game);
     expect(result.success).toBe(false);
   });

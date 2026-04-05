@@ -28,6 +28,7 @@ NOTIFY_URL = os.environ.get("NFL_NOTIFY_URL", "")
 WEBHOOK_SECRET = os.environ.get("NFL_WEBHOOK_SECRET", "")
 
 HTTP_TIMEOUT_SECS = int(os.environ.get("NFL_HTTP_TIMEOUT_SECS", 10))
+WEBHOOK_TIMEOUT_SECS = int(os.environ.get("NFL_WEBHOOK_TIMEOUT_SECS", 60))
 SCHEDULE_REFRESH_SECS = int(os.environ.get("NFL_SCHEDULE_REFRESH_SECS", 24 * 3600))
 MAX_IDLE_SLEEP_SECS = int(os.environ.get("NFL_MAX_IDLE_SLEEP_SECS", 1800))
 
@@ -55,8 +56,14 @@ PAST_EXPECTED_END_POLL_SECS = int(os.environ.get("NFL_PAST_EXPECTED_END_POLL_SEC
 
 SEASON_TYPES = ["1", "2", "3"]
 
+MAX_WEBHOOK_RETRIES = int(os.environ.get("NFL_MAX_WEBHOOK_RETRIES", 5))
+WEBHOOK_BACKOFF_BASE_SECS = int(os.environ.get("NFL_WEBHOOK_BACKOFF_BASE_SECS", 30))
+WEBHOOK_BACKOFF_MAX_SECS = int(os.environ.get("NFL_WEBHOOK_BACKOFF_MAX_SECS", 1800))
+WEBHOOK_PERMANENT_BACKOFF_SECS = int(os.environ.get("NFL_WEBHOOK_PERMANENT_BACKOFF_SECS", 4 * 3600))
+WEBHOOK_BATCH_SIZE = int(os.environ.get("NFL_WEBHOOK_BATCH_SIZE", 50))
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=os.environ.get("NFL_LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%dT%H:%M:%SZ",
     stream=sys.stdout,
@@ -64,6 +71,8 @@ logging.basicConfig(
 log = logging.getLogger("nfl_monitor")
 
 _shutdown = False
+_webhook_consecutive_failures: int = 0
+_webhook_backoff_until: float = 0.0
 
 
 def utc_now_iso() -> str:
@@ -551,6 +560,15 @@ def _apply_polled_status_details(game: Dict, details: Dict) -> bool:
             game[k] = details.get(k)
             changed = True
 
+    if (
+        game.get("winner") is None
+        and game.get("status") == "STATUS_FINAL"
+        and game.get("home_score") is not None
+        and game.get("home_score") == game.get("away_score")
+    ):
+        game["winner"] = "tie"
+        changed = True
+
     game["last_polled_at"] = time.time()
     game["next_poll_at"] = _compute_next_poll_for_game(game, game["last_polled_at"])
 
@@ -673,13 +691,19 @@ def _sign_request(body_str: str) -> Tuple[str, str]:
     return timestamp, signature
 
 
-def _post_event(event_type: str, games: List[Dict]) -> bool:
+def _post_event(event_type: str, games: List[Dict]) -> Tuple[bool, bool]:
+    """Send a webhook event.  Returns ``(ok, retryable)``.
+
+    *retryable* is only meaningful when *ok* is ``False``:
+    - ``True``  → transient problem (5xx, 429, network error); caller should back off and retry.
+    - ``False`` → permanent problem (4xx client error); retrying with the same payload will not help.
+    """
     if not games:
-        return True
+        return True, True
 
     if not NOTIFY_URL:
         log.info(f"NOTIFY_URL not set; would have sent {event_type} for {len(games)} game(s)")
-        return True
+        return True, True
 
     body_dict = {
         "type": event_type,
@@ -695,43 +719,106 @@ def _post_event(event_type: str, games: List[Dict]) -> bool:
         headers["X-SS-Signature"] = signature
 
     try:
-        resp = _requests.post(NOTIFY_URL, data=body_str, headers=headers, timeout=HTTP_TIMEOUT_SECS)
-        if resp.status_code not in (200, 201, 202, 204):
-            log.warning(f"{event_type} notify returned HTTP {resp.status_code}")
-            return False
-        return True
+        resp = _requests.post(NOTIFY_URL, data=body_str, headers=headers, timeout=WEBHOOK_TIMEOUT_SECS)
+        status = resp.status_code
+        if status in (200, 201, 202, 204):
+            return True, True
+        # 429 = rate-limited; 5xx = server-side; both are transient
+        retryable = status == 429 or status >= 500
+        log.warning(f"{event_type} notify returned HTTP {status} ({'retryable' if retryable else 'permanent'})")
+        return False, retryable
+    except _requests.Timeout:
+        log.warning(f"Timeout POSTing {event_type}")
+        return False, True
+    except _requests.ConnectionError as e:
+        log.warning(f"Connection error POSTing {event_type}: {e}")
+        return False, True
     except _requests.RequestException as e:
         log.warning(f"Failed to POST {event_type}: {e}")
-        return False
+        return False, True
+
+
+def _handle_webhook_failure(retryable: bool, event_type: str) -> None:
+    """Update global backoff state after a failed webhook send."""
+    global _webhook_consecutive_failures, _webhook_backoff_until
+    _webhook_consecutive_failures += 1
+    failures = _webhook_consecutive_failures
+
+    if retryable:
+        backoff = min(
+            WEBHOOK_BACKOFF_BASE_SECS * (2 ** min(failures - 1, 10)),
+            WEBHOOK_BACKOFF_MAX_SECS,
+        )
+        _webhook_backoff_until = time.time() + backoff
+        log.warning(
+            f"{event_type} webhook send failed (retryable); "
+            f"attempt {failures}, retrying in {backoff:.0f}s"
+        )
+    else:
+        _webhook_backoff_until = time.time() + WEBHOOK_PERMANENT_BACKOFF_SECS
+        log.error(
+            f"{event_type} webhook send failed with a permanent error (e.g. auth / validation); "
+            f"attempt {failures}; backing off for {WEBHOOK_PERMANENT_BACKOFF_SECS}s"
+        )
+
+    if failures >= MAX_WEBHOOK_RETRIES:
+        log.critical(
+            f"Webhook has failed {failures} consecutive time(s). "
+            f"Dirty games will not sync until the webhook recovers or the service restarts."
+        )
 
 
 def flush_outbox(state: Dict) -> bool:
+    global _webhook_consecutive_failures, _webhook_backoff_until
+
+    now = time.time()
+    if now < _webhook_backoff_until:
+        log.debug(
+            f"Webhook in backoff for {_webhook_backoff_until - now:.0f}s more; skipping flush"
+        )
+        return False
+
     changed = False
+    had_failure = False
     games = list(state["games"].values())
 
-    schedule_batch = [_schedule_payload(g) for g in games if g.get("schedule_dirty")]
-    if schedule_batch:
-        ok = _post_event("schedule_upsert", schedule_batch)
+    schedule_dirty = [g for g in games if g.get("schedule_dirty")]
+    for i in range(0, len(schedule_dirty), WEBHOOK_BATCH_SIZE):
+        chunk = schedule_dirty[i : i + WEBHOOK_BATCH_SIZE]
+        ok, retryable = _post_event("schedule_upsert", [_schedule_payload(g) for g in chunk])
         if ok:
             sent_at = utc_now_iso()
-            for g in games:
-                if g.get("schedule_dirty"):
-                    g["schedule_dirty"] = False
-                    g["schedule_sent_at"] = sent_at
-                    changed = True
-            log.info(f"Sent schedule_upsert for {len(schedule_batch)} game(s)")
+            for g in chunk:
+                g["schedule_dirty"] = False
+                g["schedule_sent_at"] = sent_at
+                changed = True
+            log.info(f"Sent schedule_upsert for {len(chunk)} game(s)")
+        else:
+            had_failure = True
+            _handle_webhook_failure(retryable, "schedule_upsert")
+            # Skip final batch — if schedule failed the endpoint is likely unavailable
+            return changed
 
-    final_batch = [_final_payload(g) for g in games if g.get("final_dirty") and g.get("completed")]
-    if final_batch:
-        ok = _post_event("game_final", final_batch)
+    final_dirty = [g for g in games if g.get("final_dirty") and g.get("completed")]
+    for i in range(0, len(final_dirty), WEBHOOK_BATCH_SIZE):
+        chunk = final_dirty[i : i + WEBHOOK_BATCH_SIZE]
+        ok, retryable = _post_event("game_final", [_final_payload(g) for g in chunk])
         if ok:
             sent_at = utc_now_iso()
-            for g in games:
-                if g.get("final_dirty") and g.get("completed"):
-                    g["final_dirty"] = False
-                    g["final_sent_at"] = sent_at
-                    changed = True
-            log.info(f"Sent game_final for {len(final_batch)} game(s)")
+            for g in chunk:
+                g["final_dirty"] = False
+                g["final_sent_at"] = sent_at
+                changed = True
+            log.info(f"Sent game_final for {len(chunk)} game(s)")
+        else:
+            had_failure = True
+            _handle_webhook_failure(retryable, "game_final")
+            break
+
+    if not had_failure and _webhook_consecutive_failures > 0:
+        log.info(f"Webhook recovered after {_webhook_consecutive_failures} consecutive failure(s)")
+        _webhook_consecutive_failures = 0
+        _webhook_backoff_until = 0.0
 
     return changed
 
@@ -814,6 +901,14 @@ def hydrate_game_statuses_for_ids(
 
     return changed_any
 
+def _backfill_has_dirty(state: Dict, year: str) -> bool:
+    return any(
+        g.get("schedule_dirty") or (g.get("final_dirty") and g.get("completed"))
+        for g in state["games"].values()
+        if g.get("year") == year
+    )
+
+
 def run_backfill(years: List[str], client: EspnClient) -> None:
     log.info(f"NFL Monitor — backfill mode for year(s): {', '.join(years)}")
     conn = open_db()
@@ -834,8 +929,31 @@ def run_backfill(years: List[str], client: EspnClient) -> None:
             log.info(f"Hydrating statuses for {len(year_game_ids)} game(s) in {year}...")
             hydrate_game_statuses_for_ids(state, client, executor, year_game_ids)
 
-            flush_outbox(state)
-            save_state(state, conn)
+            for attempt in range(1, MAX_WEBHOOK_RETRIES + 1):
+                if not _backfill_has_dirty(state, year):
+                    break
+
+                wait = max(0.0, _webhook_backoff_until - time.time())
+                if wait > 0:
+                    log.info(
+                        f"Backfill flush attempt {attempt}/{MAX_WEBHOOK_RETRIES}: "
+                        f"waiting {wait:.0f}s for webhook backoff…"
+                    )
+                    time.sleep(wait)
+
+                flush_outbox(state)
+                save_state(state, conn)
+            else:
+                remaining = sum(
+                    1 for g in state["games"].values()
+                    if g.get("year") == year
+                    and (g.get("schedule_dirty") or (g.get("final_dirty") and g.get("completed")))
+                )
+                if remaining:
+                    log.warning(
+                        f"Backfill for {year}: {remaining} event(s) still unsent after "
+                        f"{MAX_WEBHOOK_RETRIES} flush attempt(s)"
+                    )
 
     save_state(state, conn)
     conn.close()

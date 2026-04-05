@@ -36,7 +36,7 @@ export const GameFinalGameSchema = GameIdentifiersSchema.extend({
   away_score: z.number().int(),
   status: z.string().min(1),
   completed: z.literal(true),
-  winner: z.enum(['home', 'away']).nullable(),
+  winner: z.enum(['home', 'away', 'tie']),
 }).strict();
 
 // ── Top-level webhook body (discriminated on "type") ─────────────────────────
@@ -108,5 +108,5 @@ export interface EspnGameRecord {
   away_score?: number;
   status?: string;
   completed?: boolean;
-  winner?: 'home' | 'away' | null;
+  winner?: 'home' | 'away' | 'tie' | null;
 }

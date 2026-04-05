@@ -27,7 +27,11 @@ dist-ssr
 # sst
 .sst
 sst-env.d.ts
+
+# sqlite
 *.db
+*.db-shm
+*.db-wal
 
 # python
 __pycache__
@@ -36,3 +40,5 @@ __pycache__
 # env
 .env
 .env.*
+
+!.env.example

@@ -37,7 +37,7 @@ export const EspnGameRecordSchema = z.object({
   away_score: z.number().optional(),
   status: z.string().optional(),
   completed: z.boolean().optional(),
-  winner: z.enum(['home', 'away']).nullable().optional(),
+  winner: z.enum(['home', 'away', 'tie']).nullable().optional(),
 });
 
 export type EspnGameRecord = z.infer<typeof EspnGameRecordSchema>;

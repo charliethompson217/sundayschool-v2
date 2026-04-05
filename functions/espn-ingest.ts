@@ -14,6 +14,15 @@ function jsonResponse(statusCode: number, body: Record<string, unknown>): APIGat
 }
 
 export async function handler(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
+  try {
+    return await handleIngest(event);
+  } catch (err) {
+    console.error('Unhandled error in espn-ingest handler', { error: String(err) });
+    return jsonResponse(500, { error: 'Internal server error' });
+  }
+}
+
+async function handleIngest(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const rawBody = event.isBase64Encoded
     ? Buffer.from(event.body ?? '', 'base64').toString('utf-8')
     : (event.body ?? '');
