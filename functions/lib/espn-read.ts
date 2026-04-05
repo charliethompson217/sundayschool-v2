@@ -1,7 +1,7 @@
 import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
 import { buildGameLookupGsiPk, buildWeekPk, getDocClient } from './dynamo';
-import type { EspnGameRecord } from './espn-schemas';
+import type { EspnGameRecord } from '@/types/espn';
 
 export type { EspnGameRecord };
 

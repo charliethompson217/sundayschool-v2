@@ -19,9 +19,7 @@ export default [
       globals: globals.browser,
       parser: tseslint.parser,
       parserOptions: {
-        projectService: {
-          allowDefaultProject: ['functions/*', 'functions/*/*'],
-        },
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -33,6 +31,7 @@ export default [
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+      '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }],
     },
   },
 ];

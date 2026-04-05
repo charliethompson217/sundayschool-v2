@@ -69,13 +69,42 @@ export default $config({
       },
     });
 
+    // ── DynamoDB: App schedule / lineup config ─────────────────────────────
+    //
+    // Stores app-owned weekly schedule configuration, separate from raw ESPN data.
+    //
+    // Item types:
+    //   PK: SEASON#<year>#TYPE#<seasonType>#WEEK#<week>, SK: META
+    //     - week-level settings / visibility / submission windows
+    //
+    //   PK: SEASON#<year>#TYPE#<seasonType>#WEEK#<week>, SK: GAME#<order>#<gameId>
+    //     - one configured game entry for the week
+    //
+    // GSI1:
+    //   - season overview of week META items
+    //   PK: SEASON#<year>#TYPE#<seasonType>
+    //   SK: WEEK#<week>#META
+
+    const schedulesTable = new sst.aws.Dynamo('SchedulesTable', {
+      fields: {
+        pk: 'string',
+        sk: 'string',
+        gsi1pk: 'string',
+        gsi1sk: 'string',
+      },
+      primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+      globalIndexes: {
+        gsi1: { hashKey: 'gsi1pk', rangeKey: 'gsi1sk' },
+      },
+    });
+
     // ── Internal ingest API (machine-to-machine only) ────────────────────────
 
     const ingestApi = new sst.aws.ApiGatewayV2('IngestApi');
 
     ingestApi.route('POST /internal/espn-ingest', {
       handler: 'functions/espn-ingest.handler',
-      link: [espnGames, espnWebhookSecret],
+      link: [espnGames, espnWebhookSecret, schedulesTable],
     });
 
     // ── User API (Cognito JWT authenticated) ─────────────────────────────────
@@ -100,6 +129,26 @@ export default $config({
     userApi.route('GET /admin/users', {
       handler: 'functions/admin-get-users.handler',
       link: [usersTable, userPool, client],
+    });
+
+    userApi.route('GET /schedules', {
+      handler: 'functions/admin-schedules-list.handler',
+      link: [schedulesTable, usersTable, userPool, client],
+    });
+
+    userApi.route('GET /schedules/{year}/{seasonType}/{week}', {
+      handler: 'functions/admin-schedules-get.handler',
+      link: [schedulesTable, espnGames, usersTable, userPool, client],
+    });
+
+    userApi.route('POST /admin/schedules/{year}/{seasonType}/{week}', {
+      handler: 'functions/admin-schedules-insert.handler',
+      link: [schedulesTable, espnGames, usersTable, userPool, client],
+    });
+
+    userApi.route('PUT /admin/schedules/{year}/{seasonType}/{week}', {
+      handler: 'functions/admin-schedules-update.handler',
+      link: [schedulesTable, espnGames, usersTable, userPool, client],
     });
 
     // ── Public games API (no auth) ───────────────────────────────────────────

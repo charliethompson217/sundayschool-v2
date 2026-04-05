@@ -14,7 +14,7 @@ import HOU from './HOU.svg';
 import IND from './IND.svg';
 import JAX from './JAX.svg';
 import KC from './KC.svg';
-import LA from './LA.svg';
+import LAR from './LAR.svg';
 import LAC from './LAC.svg';
 import LV from './LV.svg';
 import MIA from './MIA.svg';
@@ -29,9 +29,9 @@ import SEA from './SEA.svg';
 import SF from './SF.svg';
 import TB from './TB.svg';
 import TEN from './TEN.svg';
-import WAS from './WAS.svg';
+import WSH from './WSH.svg';
 
-import type { TeamID } from '@/types/TEAM_IDS.ts';
+import type { TeamID } from '@/types/teams';
 
 const logoMap: Record<TeamID, string> = {
   ARI,
@@ -50,7 +50,7 @@ const logoMap: Record<TeamID, string> = {
   IND,
   JAX,
   KC,
-  LA,
+  LAR,
   LAC,
   LV,
   MIA,
@@ -65,7 +65,7 @@ const logoMap: Record<TeamID, string> = {
   SF,
   TB,
   TEN,
-  WAS,
+  WSH,
 };
 
 export function getLogo(teamID: TeamID): string {

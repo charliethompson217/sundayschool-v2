@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import p5 from 'p5';
 import { useComputedColorScheme } from '@mantine/core';
 
-import { getTeamName } from '@/types/TEAM_IDS';
-import type { GamePickDraft } from '@/types/global';
+import type { GamePickDraft } from '@/types/submissions';
+import { getTeamName } from '@/types/teams';
 
 type RankTeamsProps = {
   matchups: GamePickDraft[];

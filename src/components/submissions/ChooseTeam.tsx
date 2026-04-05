@@ -3,8 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Box, Button, Group, Stack } from '@mantine/core';
 
 import { getLogo } from '@/assets/logo-map.ts';
-import { getTeamName, type TeamID } from '@/types/TEAM_IDS';
-import type { TeamSelection } from '@/types/global';
+import { getTeamName, type TeamID, type TeamSelection } from '@/types/teams';
 
 type ChooseTeamProps = {
   homeTeamID: TeamID;
@@ -25,6 +24,11 @@ type TeamButtonProps = {
 const WIDE_CUTOFF = 160;
 
 function TeamButton({ teamID, selectedState, opposingTeamID, onClick }: TeamButtonProps) {
+  console.log('==== TeamButton =======');
+  console.log('teamID', teamID);
+  console.log('selectedState', selectedState);
+  console.log('opposingTeamID', opposingTeamID);
+  console.log('=========================');
   const logoSrc = getLogo(teamID);
   const teamName = getTeamName(teamID, 'mascot');
 

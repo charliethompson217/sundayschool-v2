@@ -6,8 +6,9 @@ import path from 'node:path';
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: [
+      { find: /^@\/types\/(.+)$/, replacement: path.resolve(__dirname, 'types/$1') },
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+    ],
   },
 });

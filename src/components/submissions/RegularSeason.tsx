@@ -5,31 +5,35 @@ import { IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, Icon
 import { useQuery } from '@tanstack/react-query';
 
 import RegularSeasonPicksForm from '@/components/submissions/RegularSeasonPicksForm';
-import { getRegularSeasonLineups } from '@/app/API/functions';
+import { getRegularSeasonWeekMetas } from '@/app/API/functions';
 import { useRegularSeasonPicksSubmissions } from '@/app/hooks/useRegularSeasonPicksSubmissions';
-import type { RegularSeasonPicksSubmission, WeekLineup } from '@/types/global';
+import type { RegularSeasonPicksSubmission } from '@/types/submissions';
+import type { WeekMeta } from '@/types/schedules';
 
-function isWeekClosed(lineup: WeekLineup): boolean {
-  return new Date(lineup.kickoff) <= new Date();
+function isWeekClosed(meta: WeekMeta): boolean {
+  return meta.submission_closes_at !== null && new Date(meta.submission_closes_at) <= new Date();
 }
 
-function formatKickoff(kickoff: string): string {
-  return new Date(kickoff).toLocaleDateString('en-US', {
+function formatKickoff(closesAt: string): string {
+  return new Date(closesAt).toLocaleString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
   });
 }
 
-function WeekRow({ lineup, onClick }: { lineup: WeekLineup; onClick: () => void }) {
-  const closed = isWeekClosed(lineup);
+function WeekRow({ meta, onClick }: { meta: WeekMeta; onClick: () => void }) {
+  const closed = isWeekClosed(meta);
   return (
     <Paper p="md" radius="md" withBorder onClick={onClick} style={{ cursor: 'pointer' }}>
       <Group justify="space-between" align="center">
         <Stack gap={2}>
           <Group gap="sm" align="center">
-            <Text fw={600}>Week {lineup.week}</Text>
+            <Text fw={600}>Week {meta.week}</Text>
             {closed ? (
               <Badge color="red" variant="light" size="sm" leftSection={<IconLock size={10} />}>
                 Closed
@@ -41,7 +45,7 @@ function WeekRow({ lineup, onClick }: { lineup: WeekLineup; onClick: () => void 
             )}
           </Group>
           <Text size="xs" c="dimmed">
-            {closed ? 'Started' : 'Kicks off'} {formatKickoff(lineup.kickoff)}
+            {closed ? 'Started' : 'Kicks off'} {formatKickoff(meta.submission_closes_at!)}
           </Text>
         </Stack>
 
@@ -68,33 +72,33 @@ interface RegularSeasonProps {
 }
 
 export default function RegularSeason({ year, onSelectionChange }: RegularSeasonProps) {
-  const [selectedWeek, setSelectedWeek] = useState<WeekLineup | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<WeekMeta | null>(null);
   const [showClosed, setShowClosed] = useState(() => {
     return localStorage.getItem('regularSeason.showClosed') === 'true';
   });
 
-  function selectWeek(lineup: WeekLineup | null) {
-    setSelectedWeek(lineup);
-    onSelectionChange?.(lineup !== null);
+  function selectWeek(meta: WeekMeta | null) {
+    setSelectedWeek(meta);
+    onSelectionChange?.(meta !== null);
   }
 
   const {
-    data: lineups,
+    data: weekMetas,
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ['regularSeasonLineups', year],
-    queryFn: () => getRegularSeasonLineups(year),
+    queryKey: ['regularSeasonWeekMetas', year],
+    queryFn: () => getRegularSeasonWeekMetas(year),
   });
 
   const { submissions, submitPicks } = useRegularSeasonPicksSubmissions(year);
 
-  const openWeeks = lineups?.filter((l) => !isWeekClosed(l)) ?? [];
-  const closedWeeks = lineups?.filter((l) => isWeekClosed(l)) ?? [];
+  const openWeeks = weekMetas?.filter((m) => !isWeekClosed(m)) ?? [];
+  const closedWeeks = weekMetas?.filter((m) => isWeekClosed(m)) ?? [];
 
   function handleSubmit(submission: RegularSeasonPicksSubmission) {
     if (selectedWeek) {
-      return submitPicks(year, selectedWeek.week, submission);
+      return submitPicks(year, 1, parseInt(selectedWeek.week, 10), submission);
     }
     return Promise.resolve();
   }
@@ -104,11 +108,12 @@ export default function RegularSeason({ year, onSelectionChange }: RegularSeason
   }
 
   if (isError) {
-    return <Text c="red">Failed to load lineups. Please try again.</Text>;
+    return <Text c="red">Failed to load schedule. Please try again.</Text>;
   }
 
   if (selectedWeek) {
     const closed = isWeekClosed(selectedWeek);
+    const weekNum = parseInt(selectedWeek.week, 10);
     return (
       <Stack>
         <Group>
@@ -121,9 +126,9 @@ export default function RegularSeason({ year, onSelectionChange }: RegularSeason
         </Group>
 
         <RegularSeasonPicksForm
-          lineup={selectedWeek}
+          weekMeta={selectedWeek}
           onSubmit={handleSubmit}
-          existingSubmission={submissions[selectedWeek.week]}
+          existingSubmission={submissions[weekNum]}
           readOnly={closed}
         />
       </Stack>
@@ -139,7 +144,7 @@ export default function RegularSeason({ year, onSelectionChange }: RegularSeason
 
       <Stack gap="sm">
         {openWeeks.length > 0 ? (
-          openWeeks.map((lineup) => <WeekRow key={lineup.week} lineup={lineup} onClick={() => selectWeek(lineup)} />)
+          openWeeks.map((meta) => <WeekRow key={meta.week} meta={meta} onClick={() => selectWeek(meta)} />)
         ) : (
           <Text size="sm" c="dimmed">
             No weeks are currently open for submission.
@@ -171,8 +176,8 @@ export default function RegularSeason({ year, onSelectionChange }: RegularSeason
           />
           <Collapse in={showClosed}>
             <Stack gap="sm">
-              {closedWeeks.map((lineup) => (
-                <WeekRow key={lineup.week} lineup={lineup} onClick={() => selectWeek(lineup)} />
+              {closedWeeks.map((meta) => (
+                <WeekRow key={meta.week} meta={meta} onClick={() => selectWeek(meta)} />
               ))}
             </Stack>
           </Collapse>

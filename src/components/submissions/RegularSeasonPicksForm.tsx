@@ -1,10 +1,26 @@
 import { useState } from 'react';
 
-import { Alert, Badge, Button, Divider, Group, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core';
+import {
+  Alert,
+  Badge,
+  Button,
+  Divider,
+  Group,
+  Loader,
+  Paper,
+  SimpleGrid,
+  Stack,
+  Text,
+  ThemeIcon,
+  Title,
+} from '@mantine/core';
 import { IconCircleCheck, IconLock } from '@tabler/icons-react';
+import { useQuery } from '@tanstack/react-query';
 
-import { getTeamName, type TeamID } from '@/types/TEAM_IDS';
-import type { GamePickDraft, Matchup, RegularSeasonPicksSubmission, TeamSelection, WeekLineup } from '@/types/global';
+import { getWeekLineup } from '@/app/API/functions';
+import type { WeekMeta } from '@/types/schedules';
+import type { GamePickDraft, RegularSeasonPicksSubmission, WeekLineup } from '@/types/submissions';
+import { getTeamName, type Matchup, type TeamID, type TeamSelection } from '@/types/teams';
 
 import ChooseTeam from './ChooseTeam';
 import RankTeams from './RankTeams';
@@ -28,13 +44,48 @@ const STEP_DESCRIPTIONS: Record<FormStep, string> = {
 const matchupKey = ([away, home]: Matchup) => `${away}-${home}`;
 
 type Props = {
+  weekMeta: WeekMeta;
+  onSubmit: (submission: RegularSeasonPicksSubmission) => Promise<void>;
+  existingSubmission?: RegularSeasonPicksSubmission;
+  readOnly?: boolean;
+};
+
+export function RegularSeasonPicksForm({ weekMeta, onSubmit, existingSubmission, readOnly = false }: Props) {
+  const {
+    data: lineup,
+    isLoading: isLoadingLineup,
+    isError: isLineupError,
+  } = useQuery({
+    queryKey: ['weekLineup', weekMeta.year, weekMeta.season_type, weekMeta.week],
+    queryFn: () => getWeekLineup(weekMeta),
+  });
+
+  if (isLoadingLineup) {
+    return <Loader />;
+  }
+
+  if (isLineupError || !lineup) {
+    return <Text c="red">Failed to load week details. Please try again.</Text>;
+  }
+
+  return (
+    <RegularSeasonPicksFormInner
+      lineup={lineup}
+      onSubmit={onSubmit}
+      existingSubmission={existingSubmission}
+      readOnly={readOnly}
+    />
+  );
+}
+
+type InnerProps = {
   lineup: WeekLineup;
   onSubmit: (submission: RegularSeasonPicksSubmission) => Promise<void>;
   existingSubmission?: RegularSeasonPicksSubmission;
   readOnly?: boolean;
 };
 
-export function RegularSeasonPicksForm({ lineup, onSubmit, existingSubmission, readOnly = false }: Props) {
+function RegularSeasonPicksFormInner({ lineup, onSubmit, existingSubmission, readOnly = false }: InnerProps) {
   const rankMatchups = lineup.scheduledMatchups.filter((sm) => sm.gameType === 'rank').map((sm) => sm.matchup);
 
   const fileMatchups = lineup.scheduledMatchups.filter((sm) => sm.gameType === 'file').map((sm) => sm.matchup);

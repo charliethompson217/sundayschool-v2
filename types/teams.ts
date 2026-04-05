@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export const TEAM_IDS = {
   ARI: 'ARI',
   ATL: 'ATL',
@@ -15,7 +17,7 @@ export const TEAM_IDS = {
   IND: 'IND',
   JAX: 'JAX',
   KC: 'KC',
-  LA: 'LA',
+  LAR: 'LAR',
   LAC: 'LAC',
   LV: 'LV',
   MIA: 'MIA',
@@ -30,7 +32,7 @@ export const TEAM_IDS = {
   SF: 'SF',
   TB: 'TB',
   TEN: 'TEN',
-  WAS: 'WAS',
+  WSH: 'WSH',
 } as const;
 
 export type TeamID = keyof typeof TEAM_IDS;
@@ -58,8 +60,8 @@ const teamNames: Record<TeamID, TeamNameParts> = {
   HOU: { full: 'Houston Texans', location: 'Houston', mascot: 'Texans' },
   IND: { full: 'Indianapolis Colts', location: 'Indianapolis', mascot: 'Colts' },
   JAX: { full: 'Jacksonville Jaguars', location: 'Jacksonville', mascot: 'Jaguars' },
-  KC: { full: 'Kansas location Chiefs', location: 'Kansas location', mascot: 'Chiefs' },
-  LA: { full: 'Los Angeles Rams', location: 'Los Angeles', mascot: 'Rams' },
+  KC: { full: 'Kansas City Chiefs', location: 'Kansas City', mascot: 'Chiefs' },
+  LAR: { full: 'Los Angeles Rams', location: 'Los Angeles', mascot: 'Rams' },
   LAC: { full: 'Los Angeles Chargers', location: 'Los Angeles', mascot: 'Chargers' },
   LV: { full: 'Las Vegas Raiders', location: 'Las Vegas', mascot: 'Raiders' },
   MIA: { full: 'Miami Dolphins', location: 'Miami', mascot: 'Dolphins' },
@@ -74,7 +76,7 @@ const teamNames: Record<TeamID, TeamNameParts> = {
   SF: { full: 'San Francisco 49ers', location: 'San Francisco', mascot: '49ers' },
   TB: { full: 'Tampa Bay Buccaneers', location: 'Tampa Bay', mascot: 'Buccaneers' },
   TEN: { full: 'Tennessee Titans', location: 'Tennessee', mascot: 'Titans' },
-  WAS: { full: 'Washington Commanders', location: 'Washington', mascot: 'Commanders' },
+  WSH: { full: 'Washington Commanders', location: 'Washington', mascot: 'Commanders' },
 };
 
 const nameToIdMap: Record<string, TeamID> = Object.fromEntries(
@@ -101,3 +103,15 @@ export function getTeamName(teamID: TeamID, type: TeamNameType = 'full'): string
 export function getTeamNames(teamID: TeamID): TeamNameParts {
   return teamNames[teamID];
 }
+
+// Mirror of the TeamID union as a runtime-checkable Zod enum.
+export const TeamIDSchema = z.enum(Object.keys(TEAM_IDS) as [keyof typeof TEAM_IDS, ...Array<keyof typeof TEAM_IDS>]);
+
+// What ChooseTeam stores: a chosen team, a tie, or nothing yet (null).
+// `allowTie` controls whether 'TIE' is ever reachable in the UI.
+export const TeamSelectionSchema = z.union([TeamIDSchema, z.literal('TIE'), z.null()]);
+export type TeamSelection = z.infer<typeof TeamSelectionSchema>;
+
+// Matchup: [awayTeamID, homeTeamID]
+export const MatchupSchema = z.tuple([TeamIDSchema, TeamIDSchema]);
+export type Matchup = z.infer<typeof MatchupSchema>;

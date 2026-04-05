@@ -5,8 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 
 import { getGameResults, getPastSubmissions } from '@/app/API/functions';
 import getLogo from '@/assets/logo-map';
-import type { GamePick, GameResultWithScore } from '@/types/global';
-import type { TeamID } from '@/types/TEAM_IDS';
+import type { GameResultWithScore } from '@/types/results';
+import type { GamePick } from '@/types/submissions';
+import type { TeamID } from '@/types/teams';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

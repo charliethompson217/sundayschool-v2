@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { EspnIngestBodySchema, GameFinalGameSchema, ScheduleUpsertGameSchema } from '../lib/espn-schemas';
+import { EspnIngestBodySchema, GameFinalGameSchema, ScheduleUpsertGameSchema } from '@/types/espn';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 

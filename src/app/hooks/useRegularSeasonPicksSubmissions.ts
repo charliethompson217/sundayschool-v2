@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getRegularSeasonPicksSubmissions, submitRegularSeasonPicks } from '@/app/API/functions';
-import type { RegularSeasonPicksSubmission } from '@/types/global';
+import type { RegularSeasonPicksSubmission } from '@/types/submissions';
 
 export const REGULAR_SEASON_SUBMISSIONS_QUERY_KEY = 'regularSeasonPicksSubmissions';
 
@@ -17,13 +17,15 @@ export function useRegularSeasonPicksSubmissions(year: number) {
   const mutation = useMutation({
     mutationFn: ({
       year,
+      seasonType,
       week,
       submission,
     }: {
       year: number;
+      seasonType: number;
       week: number;
       submission: RegularSeasonPicksSubmission;
-    }) => submitRegularSeasonPicks(year, week, submission),
+    }) => submitRegularSeasonPicks(year, seasonType, week, submission),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
     },
@@ -32,8 +34,8 @@ export function useRegularSeasonPicksSubmissions(year: number) {
   return {
     submissions: query.data ?? {},
     isLoadingSubmissions: query.isLoading,
-    submitPicks: (year: number, week: number, submission: RegularSeasonPicksSubmission) =>
-      mutation.mutateAsync({ year, week, submission }),
+    submitPicks: (year: number, seasonType: number, week: number, submission: RegularSeasonPicksSubmission) =>
+      mutation.mutateAsync({ year, seasonType, week, submission }),
     isSubmitting: mutation.isPending,
   };
 }

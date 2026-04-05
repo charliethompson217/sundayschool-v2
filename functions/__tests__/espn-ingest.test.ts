@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks (hoisted before imports) ───────────────────────────────────────────
 
-const { TEST_SECRET, TEST_TABLE, mockSend } = vi.hoisted(() => ({
+const { TEST_SECRET, TEST_TABLE, TEST_SCHEDULES_TABLE, mockSend } = vi.hoisted(() => ({
   TEST_SECRET: 'integration-test-secret',
   TEST_TABLE: 'test-espn-games',
+  TEST_SCHEDULES_TABLE: 'test-schedules',
   mockSend: vi.fn().mockResolvedValue({}),
 }));
 
@@ -14,25 +15,33 @@ vi.mock('sst', () => ({
   Resource: {
     EspnGames: { name: TEST_TABLE },
     EspnWebhookSecret: { value: TEST_SECRET },
+    SchedulesTable: { name: TEST_SCHEDULES_TABLE },
   },
 }));
 
 vi.mock('@aws-sdk/client-dynamodb', () => ({
   DynamoDBClient: class MockDynamoDBClient {},
+  ConditionalCheckFailedException: class extends Error {},
 }));
 
 vi.mock('@aws-sdk/lib-dynamodb', () => {
-  class MockUpdateCommand {
-    readonly input: unknown;
-    constructor(input: unknown) {
-      this.input = input;
-    }
-  }
+  const makeCmd = () =>
+    class {
+      readonly input: unknown;
+      constructor(input: unknown) {
+        this.input = input;
+      }
+    };
   return {
     DynamoDBDocumentClient: {
       from: vi.fn().mockReturnValue({ send: mockSend }),
     },
-    UpdateCommand: MockUpdateCommand,
+    UpdateCommand: makeCmd(),
+    PutCommand: makeCmd(),
+    GetCommand: makeCmd(),
+    QueryCommand: makeCmd(),
+    ScanCommand: makeCmd(),
+    DeleteCommand: makeCmd(),
   };
 });
 
@@ -190,13 +199,50 @@ describe('espn-ingest handler', () => {
     expect(resBody.status).toBe('ok');
     expect(resBody.gamesProcessed).toBe(1);
 
-    expect(mockSend).toHaveBeenCalledTimes(1);
+    // 1 ESPN UpdateCommand + 2 SchedulesTable PutCommands (META + game auto-fill)
+    expect(mockSend).toHaveBeenCalledTimes(3);
     const cmd = mockSend.mock.calls[0][0] as { input: Record<string, unknown> };
     const params = cmd.input as Record<string, unknown>;
     expect(params.TableName).toBe(TEST_TABLE);
     const key = params.Key as Record<string, string>;
     expect(key.pk).toBe('SEASON#2024#TYPE#2#WEEK#1');
     expect(key.sk).toBe('GAME#2024-09-06T00:20Z#401547417');
+  });
+
+  it('auto-fills SchedulesTable after schedule_upsert', async () => {
+    const body = {
+      type: 'schedule_upsert',
+      sent_at: '2024-09-05T20:00:00Z',
+      games: [validScheduleGame],
+    };
+    const event = createSignedEvent(body);
+    await invoke(event);
+
+    // Second call: conditional PutCommand for the week META
+    const metaCmd = mockSend.mock.calls[1][0] as { input: Record<string, unknown> };
+    expect(metaCmd.input.TableName).toBe(TEST_SCHEDULES_TABLE);
+    expect((metaCmd.input.Item as Record<string, unknown>).sk).toBe('META');
+    expect((metaCmd.input.Item as Record<string, unknown>).is_published).toBe(false);
+    expect(metaCmd.input.ConditionExpression).toContain('attribute_not_exists(pk)');
+
+    // Third call: conditional PutCommand for the game
+    const gameCmd = mockSend.mock.calls[2][0] as { input: Record<string, unknown> };
+    expect(gameCmd.input.TableName).toBe(TEST_SCHEDULES_TABLE);
+    expect((gameCmd.input.Item as Record<string, unknown>).game_id).toBe('401547417');
+    expect(gameCmd.input.ConditionExpression).toContain('attribute_not_exists(pk)');
+  });
+
+  it('does not auto-fill SchedulesTable for game_final events', async () => {
+    const body = {
+      type: 'game_final',
+      sent_at: '2024-09-06T03:30:00Z',
+      games: [validFinalGame],
+    };
+    const event = createSignedEvent(body);
+    await invoke(event);
+
+    // Only the single ESPN UpdateCommand — no schedule auto-fill
+    expect(mockSend).toHaveBeenCalledTimes(1);
   });
 
   it('processes a valid game_final and writes to DynamoDB', async () => {

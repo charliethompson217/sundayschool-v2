@@ -2,7 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { createHash } from 'node:crypto';
 
-import type { GameFinalGame, ScheduleUpsertGame } from './espn-schemas';
+import type { GameFinalGame, ScheduleUpsertGame } from '@/types/espn';
 
 // ── Client singleton (reused across Lambda invocations) ──────────────────────
 

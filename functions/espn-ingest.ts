@@ -3,7 +3,8 @@ import { Resource } from 'sst';
 
 import { verifyHmacSignature } from './lib/auth';
 import { writeGameFinal, writeScheduleUpsert } from './lib/dynamo';
-import { EspnIngestBodySchema } from './lib/espn-schemas';
+import { EspnIngestBodySchema } from '@/types/espn';
+import { upsertScheduleFromEspn } from './lib/schedules-dynamo';
 
 function jsonResponse(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResultV2 {
   return {
@@ -89,6 +90,37 @@ async function handleIngest(event: APIGatewayProxyEventV2): Promise<APIGatewayPr
           error: String(err),
         });
         failedGameIds.push(game.game_id);
+      }
+    }
+
+    // Auto-populate SchedulesTable (non-destructive — never overwrites existing config).
+    // Group by week in case the payload spans multiple weeks.
+    const weekMap = new Map<string, typeof body.games>();
+    for (const game of body.games) {
+      const key = `${game.year}|${game.season_type}|${game.week}`;
+      const bucket = weekMap.get(key) ?? [];
+      bucket.push(game);
+      weekMap.set(key, bucket);
+    }
+
+    for (const weekGames of weekMap.values()) {
+      const first = weekGames[0];
+      try {
+        await upsertScheduleFromEspn(
+          Resource.SchedulesTable.name,
+          first.year,
+          first.season_type,
+          first.week,
+          first.week_text,
+          weekGames.map((g) => g.game_id),
+        );
+      } catch (err) {
+        console.error('Schedule auto-fill failed', {
+          year: first.year,
+          seasonType: first.season_type,
+          week: first.week,
+          error: String(err),
+        });
       }
     }
   } else {
