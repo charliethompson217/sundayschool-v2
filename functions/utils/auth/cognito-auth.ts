@@ -3,7 +3,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import { Resource } from 'sst';
 
 import { getUserByEmail, createUser } from '../../db/users/users';
-import type { UserRecord } from '../../db/users/users';
+import type { User } from '@/types/users';
 import { json } from '../http';
 
 // ── Verifier singleton (reused across Lambda warm invocations) ────────────────
@@ -48,7 +48,7 @@ export function extractBearerToken(authHeader: string | undefined): string | nul
 // we attempt to create one here so a transient DynamoDB error can't permanently
 // lock a user out.
 
-export type AuthedHandler = (event: APIGatewayProxyEventV2, user: UserRecord) => Promise<APIGatewayProxyResultV2>;
+export type AuthedHandler = (event: APIGatewayProxyEventV2, user: User) => Promise<APIGatewayProxyResultV2>;
 
 export function withAuth(handler: AuthedHandler) {
   return async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
@@ -100,4 +100,11 @@ export function withAuth(handler: AuthedHandler) {
 
     return handler(event, user);
   };
+}
+
+export function withAdmin(handler: AuthedHandler) {
+  return withAuth(async (event, user) => {
+    if (!user.isAdmin) return json(403, { error: 'Forbidden' });
+    return handler(event, user);
+  });
 }

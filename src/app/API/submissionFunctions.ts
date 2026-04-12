@@ -1,30 +1,31 @@
-import type { PastSubmissions, PlayOffsPicksSubmission, RegularSeasonPicksSubmission } from '@/types/submissions';
+import type {
+  PickKind,
+  PastSubmissions,
+  RegularSeasonPicksSubmission,
+  PlayOffsPicksSubmission,
+} from '@/types/submissions';
 
 import { authedFetch } from './authedFetch';
 
-// ── Regular season (season_type '2') ─────────────────────────────────────────
+// ── Generic helpers ──────────────────────────────────────────────────────────
 
-/** Returns the current user's picks for every regular season week in `year`, keyed by week number. */
-export async function getRegularSeasonPicksSubmissions(
-  year: number,
-): Promise<Record<number, RegularSeasonPicksSubmission>> {
-  const res = await authedFetch(`/submissions/${year}/2`);
-  if (!res.ok) throw new Error(`GET /submissions/${year}/2 failed: ${res.status}`);
-  const { submissions } = (await res.json()) as { submissions: Record<string, RegularSeasonPicksSubmission> };
-  // Re-key with integer week numbers to match the hook's Record<number, ...> contract.
+async function getPicksSubmissions<T>(year: number, seasonType: string): Promise<Record<number, T>> {
+  const res = await authedFetch(`/submissions/${year}/${seasonType}`);
+  if (!res.ok) throw new Error(`GET /submissions/${year}/${seasonType} failed: ${res.status}`);
+  const { submissions } = (await res.json()) as { submissions: Record<string, T> };
   return Object.fromEntries(Object.entries(submissions).map(([week, picks]) => [parseInt(week, 10), picks]));
 }
 
-/** Upserts the current user's regular season picks for a specific week. */
-export async function submitRegularSeasonPicks(
+async function submitPicks<T>(
   year: number,
   seasonType: number,
   week: number,
-  submission: RegularSeasonPicksSubmission,
+  kind: PickKind,
+  submission: T,
 ): Promise<void> {
   const res = await authedFetch(`/submissions/${year}/${seasonType}/${week}`, {
     method: 'PUT',
-    body: JSON.stringify({ kind: 'regular', picks: submission }),
+    body: JSON.stringify({ kind, picks: submission }),
   });
   if (!res.ok) {
     const body = await res.text();
@@ -32,36 +33,30 @@ export async function submitRegularSeasonPicks(
   }
 }
 
-/** Fetches all users' regular season submissions for every closed week in `year`.
- *  Requires admin access; returns an object keyed by week → userId → picks.
- *  Callers that need this should drive the per-week admin endpoint directly. */
+// ── Regular season (season_type '2') ─────────────────────────────────────────
+
+export const getRegularSeasonPicksSubmissions = (year: number) =>
+  getPicksSubmissions<RegularSeasonPicksSubmission>(year, '2');
+
+export const submitRegularSeasonPicks = (
+  year: number,
+  seasonType: number,
+  week: number,
+  submission: RegularSeasonPicksSubmission,
+) => submitPicks(year, seasonType, week, 'regular', submission);
+
+// TODO: replace with real backend call
 export async function getEveryonesPastRegularSeasonSubmissions(): Promise<PastSubmissions> {
   return {};
 }
 
 // ── Playoffs (season_type '3') ────────────────────────────────────────────────
 
-/** Returns the current user's picks for every playoff week in `year`, keyed by week number. */
-export async function getPlayOffsPicksSubmissions(year: number): Promise<Record<number, PlayOffsPicksSubmission>> {
-  const res = await authedFetch(`/submissions/${year}/3`);
-  if (!res.ok) throw new Error(`GET /submissions/${year}/3 failed: ${res.status}`);
-  const { submissions } = (await res.json()) as { submissions: Record<string, PlayOffsPicksSubmission> };
-  return Object.fromEntries(Object.entries(submissions).map(([week, picks]) => [parseInt(week, 10), picks]));
-}
+export const getPlayOffsPicksSubmissions = (year: number) => getPicksSubmissions<PlayOffsPicksSubmission>(year, '3');
 
-/** Upserts the current user's playoff picks for a specific week. */
-export async function submitPlayOffsPicks(
+export const submitPlayOffsPicks = (
   year: number,
   seasonType: number,
   week: number,
   submission: PlayOffsPicksSubmission,
-): Promise<void> {
-  const res = await authedFetch(`/submissions/${year}/${seasonType}/${week}`, {
-    method: 'PUT',
-    body: JSON.stringify({ kind: 'playoff', picks: submission }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`PUT /submissions failed (${res.status}): ${body}`);
-  }
-}
+) => submitPicks(year, seasonType, week, 'playoff', submission);

@@ -3,7 +3,7 @@ import { Resource } from 'sst';
 
 import { withAuth } from '../../utils/auth/cognito-auth';
 import { listAllWeekMetas, listSeasonWeekMetas } from '../../db/schedules/schedules';
-import type { UserRecord } from '../../db/users/users';
+import type { User } from '@/types/users';
 import { json } from '../../utils/http';
 import type { WeekMetaRecord } from '@/types/schedules';
 
@@ -14,7 +14,7 @@ import type { WeekMetaRecord } from '@/types/schedules';
 // Optional: seasonType → requires year; uses GSI1 for efficient lookup
 //
 // Non-admin users only receive weeks where is_published = true.
-export const handler = withAuth(async (event: APIGatewayProxyEventV2, user: UserRecord) => {
+export const handler = withAuth(async (event: APIGatewayProxyEventV2, user: User) => {
   const { year, seasonType } = event.queryStringParameters ?? {};
   const tableName = Resource.SchedulesTable.name;
 

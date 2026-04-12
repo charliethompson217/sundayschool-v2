@@ -35,8 +35,14 @@ vi.mock('sst', () => ({
 }));
 
 vi.mock('../../utils/auth/cognito-auth', () => ({
-  withAuth: (handler: (event: unknown, user: typeof mockUser) => Promise<unknown>) => (event: unknown) =>
-    handler(event, mockUser),
+  withAdmin: (handler: (event: unknown, user: typeof mockUser) => Promise<unknown>) => (event: unknown) =>
+    mockUser.isAdmin
+      ? handler(event, mockUser)
+      : Promise.resolve({
+          statusCode: 403,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Forbidden' }),
+        }),
 }));
 
 vi.mock('../../db/schedules/schedules', () => ({
@@ -146,11 +152,11 @@ describe('schedules-update handler', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('returns 400 when the request body fails Zod validation', async () => {
+  it('returns 422 when the request body fails Zod validation', async () => {
     const res = await invoke(
       makeEvent({ year: '2024', seasonType: '2', week: '1' }, { meta: { is_published: 'not-a-bool' }, games: [] }),
     );
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(422);
     expect(parseBody(res).error).toBe('Validation failed');
   });
 

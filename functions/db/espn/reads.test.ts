@@ -30,11 +30,23 @@ import { getGameById, getGamesByWeek, getGamesBySeason, getGamesByYear } from '.
 const TABLE = 'test-espn-games';
 
 const mockGame = {
+  pk: 'SEASON#2024#TYPE#2#WEEK#1',
+  sk: 'GAME#401547417',
   game_id: '401547417',
+  competition_id: 'c1',
   year: '2024',
   season_type: '2',
   week: '1',
+  week_text: 'Week 1',
   start_time: '2024-09-06T00:20Z',
+  home_team_id: '1',
+  away_team_id: '2',
+  home: 'KC',
+  away: 'BAL',
+  entity_type: 'game',
+  source_event_type: 'schedule_upsert' as const,
+  espn_updated_at: '2024-09-01T00:00:00Z',
+  ingested_at: '2024-09-01T00:00:00Z',
 };
 
 // ── getGameById ───────────────────────────────────────────────────────────────

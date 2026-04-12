@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 import { MatchupSchema, TeamIDSchema } from './teams';
 
+export const PickKindSchema = z.enum(['regular', 'playoff']);
+export type PickKind = z.infer<typeof PickKindSchema>;
+
 // 'rank' — user picks a winner AND ranks the game by confidence.
 // 'file' — user just picks a winner; the game is not ranked.
 export const GameTypeSchema = z.enum(['rank', 'file']);
@@ -83,3 +86,35 @@ export const PlayOffsPicksSubmissionSchema = z.object({
   parlayBet: PlayoffParlayBetSchema.nullable(),
 });
 export type PlayOffsPicksSubmission = z.infer<typeof PlayOffsPicksSubmissionSchema>;
+
+// ── Picks records (Dynamo items) ──────────────────────────────────────────────
+
+const PicksRecordBaseSchema = z.object({
+  pk: z.string(),
+  sk: z.string(),
+  gsi1pk: z.string(),
+  gsi1sk: z.string(),
+  userId: z.string(),
+  year: z.string(),
+  season_type: z.string(),
+  week: z.string(),
+  submitted_at: z.string(),
+});
+
+export const RegularSeasonPicksRecordSchema = PicksRecordBaseSchema.extend({
+  kind: z.literal('regular'),
+  picks: RegularSeasonPicksSubmissionSchema,
+});
+export type RegularSeasonPicksRecord = z.infer<typeof RegularSeasonPicksRecordSchema>;
+
+export const PlayoffPicksRecordSchema = PicksRecordBaseSchema.extend({
+  kind: z.literal('playoff'),
+  picks: PlayOffsPicksSubmissionSchema,
+});
+export type PlayoffPicksRecord = z.infer<typeof PlayoffPicksRecordSchema>;
+
+export const PicksRecordSchema = z.discriminatedUnion('kind', [
+  RegularSeasonPicksRecordSchema,
+  PlayoffPicksRecordSchema,
+]);
+export type PicksRecord = z.infer<typeof PicksRecordSchema>;

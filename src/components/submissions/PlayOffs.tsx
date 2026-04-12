@@ -1,14 +1,5 @@
-import { useState } from 'react';
-
-import { ActionIcon, Badge, Button, Collapse, Divider, Group, Loader, Paper, Stack, Text, Title } from '@mantine/core';
-import {
-  IconChevronDown,
-  IconChevronLeft,
-  IconChevronRight,
-  IconChevronUp,
-  IconLock,
-  IconTrophy,
-} from '@tabler/icons-react';
+import { Badge, Button, Group, Paper, Stack, Text } from '@mantine/core';
+import { IconChevronRight, IconLock, IconTrophy } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 
 import PlayOffsPicksForm from '@/components/submissions/PlayOffsPicksForm';
@@ -18,23 +9,10 @@ import { usePlayOffsPicksSubmissions } from '@/app/hooks/usePlayOffsPicksSubmiss
 import type { PlayOffsPicksSubmission } from '@/types/submissions';
 import type { WeekMeta } from '@/types/schedules';
 
-function isWeekClosed(meta: WeekMeta): boolean {
-  return meta.submission_closes_at !== null && new Date(meta.submission_closes_at) <= new Date();
-}
+import WeekListPage from './WeekListPage';
+import { isWeekClosed, formatKickoff } from './weekUtils';
 
-function formatKickoff(closesAt: string): string {
-  return new Date(closesAt).toLocaleString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  });
-}
-
-function WeekRow({ meta, onClick }: { meta: WeekMeta; onClick: () => void }) {
+function PlayoffWeekRow({ meta, onClick }: { meta: WeekMeta; onClick: () => void }) {
   const closed = isWeekClosed(meta);
   const roundLabel = meta.round_name ?? `Week ${meta.week}`;
 
@@ -90,123 +68,35 @@ interface PlayOffsProps {
 }
 
 export default function PlayOffs({ year, onSelectionChange }: PlayOffsProps) {
-  const [selectedWeek, setSelectedWeek] = useState<WeekMeta | null>(null);
-  const [showClosed, setShowClosed] = useState(() => {
-    return localStorage.getItem('playOffs.showClosed') === 'true';
-  });
-
-  function selectWeek(meta: WeekMeta | null) {
-    setSelectedWeek(meta);
-    onSelectionChange?.(meta !== null);
-  }
-
-  const {
-    data: weekMetas,
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ['playOffsWeekMetas', year],
-    queryFn: () => getPlayOffsWeekMetas(year),
-  });
+  const { submissions, submitPicks } = usePlayOffsPicksSubmissions(year);
 
   const { data: playoffsBucks, isLoading: isLoadingBucks } = useQuery({
     queryKey: ['playoffsBucks', year],
     queryFn: () => getPlayOffsBucks(year),
   });
 
-  const { submissions, submitPicks } = usePlayOffsPicksSubmissions(year);
-
-  const openWeeks = weekMetas?.filter((m) => !isWeekClosed(m)) ?? [];
-  const closedWeeks = weekMetas?.filter((m) => isWeekClosed(m)) ?? [];
-
-  function handleSubmit(submission: PlayOffsPicksSubmission) {
-    if (selectedWeek) {
-      return submitPicks(year, parseInt(selectedWeek.season_type, 10), parseInt(selectedWeek.week, 10), submission);
-    }
-    return Promise.resolve();
-  }
-
-  if (isLoading || isLoadingBucks) {
-    return <Loader />;
-  }
-
-  if (isError) {
-    return <Text c="red">Failed to load schedule. Please try again.</Text>;
-  }
-
-  if (selectedWeek) {
-    const closed = isWeekClosed(selectedWeek);
-    const weekNum = parseInt(selectedWeek.week, 10);
-    return (
-      <Stack>
-        <Group>
-          <ActionIcon variant="subtle" onClick={() => selectWeek(null)}>
-            <IconChevronLeft size={18} />
-          </ActionIcon>
-          <Text size="sm" c="dimmed">
-            Back to rounds
-          </Text>
-        </Group>
-
+  return (
+    <WeekListPage<PlayOffsPicksSubmission>
+      title="Playoff Bets"
+      emptyMessage="No rounds are currently open for betting."
+      localStorageKey="playOffs.showClosed"
+      closedLabel="previous rounds"
+      queryKey={`playOffsWeekMetas-${year}`}
+      queryFn={() => getPlayOffsWeekMetas(year)}
+      submissions={submissions}
+      submitPicks={submitPicks}
+      onSelectionChange={onSelectionChange}
+      extraLoading={isLoadingBucks}
+      renderWeekRow={(meta, onClick) => <PlayoffWeekRow meta={meta} onClick={onClick} />}
+      renderForm={({ weekMeta, onSubmit, existingSubmission, readOnly }) => (
         <PlayOffsPicksForm
-          weekMeta={selectedWeek}
-          onSubmit={handleSubmit}
-          existingSubmission={submissions[weekNum]}
-          readOnly={closed}
+          weekMeta={weekMeta}
+          onSubmit={onSubmit}
+          existingSubmission={existingSubmission}
+          readOnly={readOnly}
           playoffsBucks={playoffsBucks ?? 0}
         />
-      </Stack>
-    );
-  }
-
-  return (
-    <Stack>
-      <Title order={3}>Playoff Bets</Title>
-      <Text size="sm" c="dimmed">
-        Select a round to place or review your bets.
-      </Text>
-
-      <Stack gap="sm">
-        {openWeeks.length > 0 ? (
-          openWeeks.map((meta) => <WeekRow key={meta.week} meta={meta} onClick={() => selectWeek(meta)} />)
-        ) : (
-          <Text size="sm" c="dimmed">
-            No rounds are currently open for betting.
-          </Text>
-        )}
-      </Stack>
-
-      {closedWeeks.length > 0 && (
-        <Stack gap="sm">
-          <Divider
-            labelPosition="left"
-            label={
-              <Button
-                size="xs"
-                variant="subtle"
-                color="gray"
-                leftSection={showClosed ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}
-                onClick={() =>
-                  setShowClosed((v) => {
-                    const next = !v;
-                    localStorage.setItem('playOffs.showClosed', String(next));
-                    return next;
-                  })
-                }
-              >
-                {showClosed ? 'Hide' : 'Show'} previous rounds ({closedWeeks.length})
-              </Button>
-            }
-          />
-          <Collapse in={showClosed}>
-            <Stack gap="sm">
-              {closedWeeks.map((meta) => (
-                <WeekRow key={meta.week} meta={meta} onClick={() => selectWeek(meta)} />
-              ))}
-            </Stack>
-          </Collapse>
-        </Stack>
       )}
-    </Stack>
+    />
   );
 }

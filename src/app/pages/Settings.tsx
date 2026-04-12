@@ -1,5 +1,3 @@
-// src/app/routes/Settings.tsx
-
 import { Button, Stack, Title } from '@mantine/core';
 import { useAuth } from '../context/auth/useAuth';
 

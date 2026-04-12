@@ -3,10 +3,9 @@ import { Resource } from 'sst';
 
 import { withAuth } from '../../utils/auth/cognito-auth';
 import { buildRegularSeasonPicksItem, buildPlayoffPicksItem, putPicks } from '../../db/picks/picks';
-import type { UserRecord } from '../../db/users/users';
-import { json } from '../../utils/http';
+import type { User } from '@/types/users';
+import { json, parsePathParams, parseJsonBody } from '../../utils/http';
 import { RegularSeasonPicksSubmissionSchema, PlayOffsPicksSubmissionSchema } from '@/types/submissions';
-import { getWeekMeta } from '../../db/schedules/schedules';
 
 // PUT /submissions/{year}/{seasonType}/{week}
 //
@@ -16,12 +15,12 @@ import { getWeekMeta } from '../../db/schedules/schedules';
 //
 // Re-submitting overwrites the previous entry; submitted_at is refreshed.
 // Returns 409 if the week's submission_closes_at has already passed.
-export const handler = withAuth(async (event: APIGatewayProxyEventV2, user: UserRecord) => {
-  const { year, seasonType, week } = event.pathParameters ?? {};
+import { getWeekMeta } from '../../db/schedules/schedules';
 
-  if (!year || !seasonType || !week) {
-    return json(400, { error: 'Missing path parameters' });
-  }
+export const handler = withAuth(async (event: APIGatewayProxyEventV2, user: User) => {
+  const pathResult = parsePathParams(event, 'year', 'seasonType', 'week');
+  if (!pathResult.ok) return pathResult.response;
+  const { year, seasonType, week } = pathResult.params;
 
   const meta = await getWeekMeta(Resource.SchedulesTable.name, year, seasonType, week);
 
@@ -33,13 +32,10 @@ export const handler = withAuth(async (event: APIGatewayProxyEventV2, user: User
     return json(409, { error: 'Submission window has closed', closes_at: meta.submission_closes_at });
   }
 
-  let body: unknown;
-  try {
-    body = JSON.parse(event.body ?? '{}');
-  } catch {
-    return json(400, { error: 'Invalid JSON body' });
-  }
+  const bodyResult = parseJsonBody(event);
+  if (!bodyResult.ok) return bodyResult.response;
 
+  const body = bodyResult.data;
   if (typeof body !== 'object' || body === null || !('kind' in body) || !('picks' in body)) {
     return json(400, { error: 'Body must include "kind" and "picks"' });
   }

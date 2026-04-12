@@ -34,8 +34,14 @@ vi.mock('sst', () => ({
 }));
 
 vi.mock('../../utils/auth/cognito-auth', () => ({
-  withAuth: (handler: (event: unknown, user: typeof mockUser) => Promise<unknown>) => (event: unknown) =>
-    handler(event, mockUser),
+  withAdmin: (handler: (event: unknown, user: typeof mockUser) => Promise<unknown>) => (event: unknown) =>
+    mockUser.isAdmin
+      ? handler(event, mockUser)
+      : Promise.resolve({
+          statusCode: 403,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Forbidden' }),
+        }),
 }));
 
 vi.mock('../../db/schedules/schedules', () => ({
@@ -155,11 +161,11 @@ describe('schedules-insert handler', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('returns 400 when the request body fails Zod validation', async () => {
+  it('returns 422 when the request body fails Zod validation', async () => {
     const res = await invoke(
       makeEvent({ year: '2024', seasonType: '2', week: '1' }, { meta: { is_published: 'yes' }, games: [] }),
     );
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(422);
     expect(parseBody(res).error).toBe('Validation failed');
   });
 
@@ -188,14 +194,14 @@ describe('schedules-insert handler', () => {
     expect(mockInsertWeek).toHaveBeenCalledOnce();
   });
 
-  it('returns 400 when a playoff body is sent with seasonType 2', async () => {
+  it('returns 422 when a playoff body is sent with seasonType 2', async () => {
     const res = await invoke(makeEvent({ year: '2024', seasonType: '2', week: '1' }, playoffBody));
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(422);
   });
 
-  it('returns 400 when a regular body is sent with seasonType 3', async () => {
+  it('returns 422 when a regular body is sent with seasonType 3', async () => {
     const res = await invoke(makeEvent({ year: '2024', seasonType: '3', week: '1' }, regularBody));
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(422);
   });
 
   it('returns 500 on unexpected DynamoDB error', async () => {

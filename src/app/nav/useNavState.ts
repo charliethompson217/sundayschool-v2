@@ -1,5 +1,3 @@
-// src/app/nav/useNavState.ts
-
 import { useDisclosure } from '@mantine/hooks';
 import { useMediaQuery } from '@mantine/hooks';
 import { useState } from 'react';

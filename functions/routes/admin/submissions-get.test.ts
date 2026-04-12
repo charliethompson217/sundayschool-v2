@@ -32,8 +32,14 @@ vi.mock('sst', () => ({
 }));
 
 vi.mock('../../utils/auth/cognito-auth', () => ({
-  withAuth: (inner: (event: unknown, user: typeof mockUser) => Promise<unknown>) => (event: unknown) =>
-    inner(event, mockUser),
+  withAdmin: (inner: (event: unknown, user: typeof mockUser) => Promise<unknown>) => (event: unknown) =>
+    mockUser.isAdmin
+      ? inner(event, mockUser)
+      : Promise.resolve({
+          statusCode: 403,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Forbidden' }),
+        }),
 }));
 
 vi.mock('../../db/picks/picks', () => ({

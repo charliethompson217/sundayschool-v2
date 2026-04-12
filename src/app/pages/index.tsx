@@ -1,5 +1,3 @@
-// src/config/routes.tsx
-
 import { IconHome, IconSettings, IconClipboardList, IconChartDots, IconUserShield } from '@tabler/icons-react';
 import HomeRoute from './Home.tsx';
 import SettingsRoute from './Settings.tsx';

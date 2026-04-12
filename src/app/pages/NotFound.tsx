@@ -1,5 +1,3 @@
-// src/app/routes/NotFound.tsx
-
 import { Title, Text } from '@mantine/core';
 
 export default function NotFoundRoute() {

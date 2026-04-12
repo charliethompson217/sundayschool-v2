@@ -2,14 +2,16 @@ import { DeleteCommand, GetCommand, PutCommand, QueryCommand, ScanCommand } from
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 
 import { buildWeekPk, getDocClient } from '../client';
-import type {
-  GameInput,
-  MetaInput,
-  PlayoffGameInput,
-  PlayoffMetaInput,
-  RegularGameInput,
-  ScheduleGameRecord,
-  WeekMetaRecord,
+import {
+  WeekMetaRecordSchema,
+  ScheduleGameRecordSchema,
+  type GameInput,
+  type MetaInput,
+  type PlayoffGameInput,
+  type PlayoffMetaInput,
+  type RegularGameInput,
+  type ScheduleGameRecord,
+  type WeekMetaRecord,
 } from '@/types/schedules';
 
 export type { WeekMetaRecord, ScheduleGameRecord };
@@ -105,7 +107,7 @@ export async function getWeekMeta(
       Key: { pk: buildWeekPk(year, seasonType, week), sk: 'META' },
     }),
   );
-  return (result.Item as WeekMetaRecord) ?? null;
+  return result.Item ? WeekMetaRecordSchema.parse(result.Item) : null;
 }
 
 export async function getWeekGames(
@@ -123,7 +125,7 @@ export async function getWeekGames(
       ExpressionAttributeValues: { ':pk': pk, ':prefix': 'GAME#' },
     }),
   );
-  return (result.Items as ScheduleGameRecord[]) ?? [];
+  return (result.Items ?? []).map((item) => ScheduleGameRecordSchema.parse(item));
 }
 
 // Query all week META items for a season via GSI1 (efficient, index-backed).
@@ -141,7 +143,7 @@ export async function listSeasonWeekMetas(
       ExpressionAttributeValues: { ':pk': gsi1pk },
     }),
   );
-  return (result.Items as WeekMetaRecord[]) ?? [];
+  return (result.Items ?? []).map((item) => WeekMetaRecordSchema.parse(item));
 }
 
 // Scan all META items (admin use; small total dataset for an NFL season pool).
@@ -158,7 +160,7 @@ export async function listAllWeekMetas(tableName: string): Promise<WeekMetaRecor
         ExclusiveStartKey: lastKey,
       }),
     );
-    items.push(...((result.Items as WeekMetaRecord[]) ?? []));
+    items.push(...(result.Items ?? []).map((item) => WeekMetaRecordSchema.parse(item)));
     lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
   } while (lastKey);
 

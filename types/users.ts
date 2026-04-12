@@ -16,3 +16,12 @@ export const UserSchema = z.object({
   isPlayer: z.boolean().default(true),
 });
 export type User = z.infer<typeof UserSchema>;
+
+export const CreateUserParamsSchema = UserSchema.pick({
+  email: true,
+  username: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+});
+export type CreateUserParams = z.infer<typeof CreateUserParamsSchema>;

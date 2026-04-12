@@ -318,7 +318,14 @@ describe('updateWeek', () => {
   });
 
   it('deletes games removed from the set', async () => {
-    const removedGame = { pk: meta.pk, sk: 'GAME#old-game', game_id: 'old-game' };
+    const removedGame = {
+      pk: meta.pk,
+      sk: 'GAME#old-game',
+      year: '2024',
+      season_type: '2',
+      week: '1',
+      game_id: 'old-game',
+    };
     mockSend
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ Items: [removedGame] })
@@ -338,7 +345,14 @@ describe('updateWeek', () => {
       include_in_rank: true,
       include_in_file: true,
     });
-    const existingKeep = { pk: meta.pk, sk: 'GAME#keep-me', game_id: 'keep-me' };
+    const existingKeep = {
+      pk: meta.pk,
+      sk: 'GAME#keep-me',
+      year: '2024',
+      season_type: '2',
+      week: '1',
+      game_id: 'keep-me',
+    };
     mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({ Items: [existingKeep] });
 
     await updateWeek(TABLE, meta, [keepGame]);
@@ -358,7 +372,19 @@ describe('getWeekMeta', () => {
   });
 
   it('returns the item when found', async () => {
-    const fakeItem = { pk: 'SEASON#2024#TYPE#2#WEEK#1', sk: 'META', kind: 'regular' };
+    const fakeItem = {
+      pk: 'SEASON#2024#TYPE#2#WEEK#1',
+      sk: 'META',
+      gsi1pk: 'SEASON#2024#TYPE#2',
+      gsi1sk: 'WEEK#1#META',
+      year: '2024',
+      season_type: '2',
+      week: '1',
+      kind: 'regular',
+      is_published: false,
+      submission_opens_at: null,
+      submission_closes_at: null,
+    };
     mockSend.mockResolvedValueOnce({ Item: fakeItem });
     const result = await getWeekMeta(TABLE, '2024', '2', '1');
     expect(result).toEqual(fakeItem);
@@ -391,8 +417,22 @@ describe('getWeekGames', () => {
 
   it('returns all game items for the week', async () => {
     const games = [
-      { sk: 'GAME#401547417', game_id: '401547417' },
-      { sk: 'GAME#401547418', game_id: '401547418' },
+      {
+        pk: 'SEASON#2024#TYPE#2#WEEK#1',
+        sk: 'GAME#401547417',
+        year: '2024',
+        season_type: '2',
+        week: '1',
+        game_id: '401547417',
+      },
+      {
+        pk: 'SEASON#2024#TYPE#2#WEEK#1',
+        sk: 'GAME#401547418',
+        year: '2024',
+        season_type: '2',
+        week: '1',
+        game_id: '401547418',
+      },
     ];
     mockSend.mockResolvedValueOnce({ Items: games });
     const result = await getWeekGames(TABLE, '2024', '2', '1');
@@ -475,9 +515,18 @@ describe('listSeasonWeekMetas', () => {
   });
 
   it('returns all META items for the given season', async () => {
+    const baseMeta = {
+      gsi1pk: 'SEASON#2024#TYPE#2',
+      year: '2024',
+      season_type: '2',
+      kind: 'regular',
+      is_published: false,
+      submission_opens_at: null,
+      submission_closes_at: null,
+    };
     const items = [
-      { pk: 'SEASON#2024#TYPE#2#WEEK#1', sk: 'META', kind: 'regular' },
-      { pk: 'SEASON#2024#TYPE#2#WEEK#2', sk: 'META', kind: 'regular' },
+      { ...baseMeta, pk: 'SEASON#2024#TYPE#2#WEEK#1', sk: 'META', gsi1sk: 'WEEK#1#META', week: '1' },
+      { ...baseMeta, pk: 'SEASON#2024#TYPE#2#WEEK#2', sk: 'META', gsi1sk: 'WEEK#2#META', week: '2' },
     ];
     mockSend.mockResolvedValueOnce({ Items: items });
     const result = await listSeasonWeekMetas(TABLE, '2024', '2');
@@ -510,8 +559,32 @@ describe('listAllWeekMetas', () => {
 
   it('returns all META items from a single scan page', async () => {
     const items = [
-      { pk: 'SEASON#2024#TYPE#2#WEEK#1', sk: 'META', kind: 'regular' },
-      { pk: 'SEASON#2024#TYPE#3#WEEK#1', sk: 'META', kind: 'playoff' },
+      {
+        pk: 'SEASON#2024#TYPE#2#WEEK#1',
+        sk: 'META',
+        gsi1pk: 'SEASON#2024#TYPE#2',
+        gsi1sk: 'WEEK#1#META',
+        year: '2024',
+        season_type: '2',
+        week: '1',
+        kind: 'regular',
+        is_published: false,
+        submission_opens_at: null,
+        submission_closes_at: null,
+      },
+      {
+        pk: 'SEASON#2024#TYPE#3#WEEK#1',
+        sk: 'META',
+        gsi1pk: 'SEASON#2024#TYPE#3',
+        gsi1sk: 'WEEK#1#META',
+        year: '2024',
+        season_type: '3',
+        week: '1',
+        kind: 'playoff',
+        is_published: false,
+        submission_opens_at: null,
+        submission_closes_at: null,
+      },
     ];
     mockSend.mockResolvedValueOnce({ Items: items, LastEvaluatedKey: undefined });
     const result = await listAllWeekMetas(TABLE);
@@ -525,8 +598,17 @@ describe('listAllWeekMetas', () => {
   });
 
   it('paginates through multiple scan pages', async () => {
-    const page1 = [{ pk: 'SEASON#2024#TYPE#2#WEEK#1', sk: 'META', kind: 'regular' }];
-    const page2 = [{ pk: 'SEASON#2024#TYPE#2#WEEK#2', sk: 'META', kind: 'regular' }];
+    const baseMeta = {
+      gsi1pk: 'SEASON#2024#TYPE#2',
+      year: '2024',
+      season_type: '2',
+      kind: 'regular',
+      is_published: false,
+      submission_opens_at: null,
+      submission_closes_at: null,
+    };
+    const page1 = [{ ...baseMeta, pk: 'SEASON#2024#TYPE#2#WEEK#1', sk: 'META', gsi1sk: 'WEEK#1#META', week: '1' }];
+    const page2 = [{ ...baseMeta, pk: 'SEASON#2024#TYPE#2#WEEK#2', sk: 'META', gsi1sk: 'WEEK#2#META', week: '2' }];
     mockSend
       .mockResolvedValueOnce({ Items: page1, LastEvaluatedKey: { pk: 'page-1' } })
       .mockResolvedValueOnce({ Items: page2, LastEvaluatedKey: undefined });

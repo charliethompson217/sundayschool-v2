@@ -1,5 +1,3 @@
-// src/app/nav/Navbar.tsx
-
 import { AppShell, Burger, Group, Title } from '@mantine/core';
 import { NavLinks } from './NavLinks.tsx';
 import { NavToggle } from './NavToggle.tsx';

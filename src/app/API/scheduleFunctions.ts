@@ -1,24 +1,45 @@
 import type { WeekDetail, WeekMeta } from '@/types/schedules';
-import type { ScheduledMatchup, WeekLineup } from '@/types/submissions';
+import type { PickKind, ScheduledMatchup, WeekLineup } from '@/types/submissions';
 import type { TeamID } from '@/types/teams';
 
 import { authedFetch } from './authedFetch';
 
-export type SeasonPhase = 'regular' | 'playoffs';
-
 // TODO: replace with real backend call
-export async function getSeasonPhase(): Promise<SeasonPhase> {
-  return 'regular'; // change to 'playoffs' to test that branch
+export async function getSeasonPhase(): Promise<PickKind> {
+  return 'regular'; // change to 'playoff' to test that branch
 }
 
+// TODO: replace with real backend call
 export async function getYears(): Promise<number[]> {
   return [2022, 2023, 2024, 2025];
 }
 
+// ── Generic week metas fetcher ───────────────────────────────────────────────
+
+async function getWeekMetas(year: number, seasonType: string): Promise<WeekMeta[]> {
+  const params = new URLSearchParams({ year: String(year), seasonType });
+  const res = await authedFetch(`/schedules?${params}`);
+  if (!res.ok) throw new Error(`GET /schedules failed: ${res.status}`);
+  const data = (await res.json()) as { weeks: WeekMeta[] };
+  return data.weeks
+    .filter((w) => w.is_published && w.submission_closes_at)
+    .sort((a, b) => parseInt(a.week, 10) - parseInt(b.week, 10));
+}
+
+async function getWeekDetail(weekMeta: WeekMeta): Promise<WeekDetail> {
+  const { year, season_type, week } = weekMeta;
+  const res = await authedFetch(`/schedules/${year}/${season_type}/${week}`);
+  if (!res.ok) throw new Error(`GET /schedules/${year}/${season_type}/${week} failed: ${res.status}`);
+  return (await res.json()) as WeekDetail;
+}
+
+// ── Regular season ───────────────────────────────────────────────────────────
+
+export const getRegularSeasonWeekMetas = (year: number) => getWeekMetas(year, '2');
+
 function weekDetailToWeekLineup(detail: WeekDetail): WeekLineup | null {
   const { meta, games } = detail;
 
-  // Weeks without a closes_at are not yet ready for submission — skip them.
   const kickoff = meta.submission_closes_at;
   if (!kickoff) return null;
 
@@ -47,50 +68,24 @@ function weekDetailToWeekLineup(detail: WeekDetail): WeekLineup | null {
   };
 }
 
-export async function getRegularSeasonWeekMetas(year: number): Promise<WeekMeta[]> {
-  // season_type '2' is ESPN's numeric code for regular season.
-  const params = new URLSearchParams({ year: String(year), seasonType: '2' });
-  const res = await authedFetch(`/schedules?${params}`);
-  if (!res.ok) throw new Error(`GET /schedules failed: ${res.status}`);
-  const data = (await res.json()) as { weeks: WeekMeta[] };
-  return data.weeks
-    .filter((w) => w.is_published && w.submission_closes_at)
-    .sort((a, b) => parseInt(a.week, 10) - parseInt(b.week, 10));
-}
-
 export async function getWeekLineup(weekMeta: WeekMeta): Promise<WeekLineup | null> {
-  const { year, season_type, week } = weekMeta;
-  const res = await authedFetch(`/schedules/${year}/${season_type}/${week}`);
-  if (!res.ok) throw new Error(`GET /schedules/${year}/${season_type}/${week} failed: ${res.status}`);
-  const detail = (await res.json()) as WeekDetail;
+  const detail = await getWeekDetail(weekMeta);
   return weekDetailToWeekLineup(detail);
 }
 
-/** A wagerable game in a playoff week, with teams and a spread. */
+// ── Playoffs ─────────────────────────────────────────────────────────────────
+
+export const getPlayOffsWeekMetas = (year: number) => getWeekMetas(year, '3');
+
 export type PlayoffWageableGame = {
   gameId: string;
   away: TeamID;
   home: TeamID;
-  /** Points: negative means home is favored. e.g. -3.5 → home -3.5, away +3.5. */
   spread: number;
 };
 
-export async function getPlayOffsWeekMetas(year: number): Promise<WeekMeta[]> {
-  // season_type '3' is ESPN's numeric code for post-season.
-  const params = new URLSearchParams({ year: String(year), seasonType: '3' });
-  const res = await authedFetch(`/schedules?${params}`);
-  if (!res.ok) throw new Error(`GET /schedules failed: ${res.status}`);
-  const data = (await res.json()) as { weeks: WeekMeta[] };
-  return data.weeks
-    .filter((w) => w.is_published && w.submission_closes_at)
-    .sort((a, b) => parseInt(a.week, 10) - parseInt(b.week, 10));
-}
-
 export async function getPlayOffsWeekGames(weekMeta: WeekMeta): Promise<PlayoffWageableGame[]> {
-  const { year, season_type, week } = weekMeta;
-  const res = await authedFetch(`/schedules/${year}/${season_type}/${week}`);
-  if (!res.ok) throw new Error(`GET /schedules/${year}/${season_type}/${week} failed: ${res.status}`);
-  const detail = (await res.json()) as WeekDetail;
+  const detail = await getWeekDetail(weekMeta);
 
   return detail.games
     .filter((g) => g.is_wagerable && g.espn)

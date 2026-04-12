@@ -1,35 +1,17 @@
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 import { buildWeekPk, getDocClient } from '../client';
-import type { RegularSeasonPicksSubmission, PlayOffsPicksSubmission } from '@/types/submissions';
+import {
+  PicksRecordSchema,
+  type PickKind,
+  type PicksRecord,
+  type RegularSeasonPicksRecord,
+  type PlayoffPicksRecord,
+  type RegularSeasonPicksSubmission,
+  type PlayOffsPicksSubmission,
+} from '@/types/submissions';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export type PickKind = 'regular' | 'playoff';
-
-interface PicksRecordBase {
-  pk: string;
-  sk: string;
-  gsi1pk: string;
-  gsi1sk: string;
-  userId: string;
-  year: string;
-  season_type: string;
-  week: string;
-  submitted_at: string;
-}
-
-export interface RegularSeasonPicksRecord extends PicksRecordBase {
-  kind: 'regular';
-  picks: RegularSeasonPicksSubmission;
-}
-
-export interface PlayoffPicksRecord extends PicksRecordBase {
-  kind: 'playoff';
-  picks: PlayOffsPicksSubmission;
-}
-
-export type PicksRecord = RegularSeasonPicksRecord | PlayoffPicksRecord;
+export type { PickKind, PicksRecord, RegularSeasonPicksRecord, PlayoffPicksRecord };
 
 // ── Key builders ──────────────────────────────────────────────────────────────
 
@@ -120,7 +102,7 @@ export async function getUserWeekPicks(
       },
     }),
   );
-  return (result.Item as PicksRecord) ?? null;
+  return result.Item ? PicksRecordSchema.parse(result.Item) : null;
 }
 
 /** Get all of a user's picks for a given year across all weeks and season types. */
@@ -136,7 +118,7 @@ export async function getUserYearPicks(tableName: string, userId: string, year: 
       },
     }),
   );
-  return (result.Items as PicksRecord[]) ?? [];
+  return (result.Items ?? []).map((item) => PicksRecordSchema.parse(item));
 }
 
 /** Get all of a user's picks for a specific season (year + seasonType) in one query. */
@@ -157,7 +139,7 @@ export async function getUserSeasonPicks(
       },
     }),
   );
-  return (result.Items as PicksRecord[]) ?? [];
+  return (result.Items ?? []).map((item) => PicksRecordSchema.parse(item));
 }
 
 /** Get all users' picks for a specific week via GSI1. */
@@ -177,7 +159,7 @@ export async function getAllUsersWeekPicks(
       },
     }),
   );
-  return (result.Items as PicksRecord[]) ?? [];
+  return (result.Items ?? []).map((item) => PicksRecordSchema.parse(item));
 }
 
 // ── Write operations ──────────────────────────────────────────────────────────

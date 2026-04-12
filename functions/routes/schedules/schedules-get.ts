@@ -4,8 +4,8 @@ import { Resource } from 'sst';
 import { withAuth } from '../../utils/auth/cognito-auth';
 import { getWeekMeta, getWeekGames } from '../../db/schedules/schedules';
 import { getGamesByWeek } from '../../db/espn/reads';
-import type { UserRecord } from '../../db/users/users';
-import { json } from '../../utils/http';
+import type { User } from '@/types/users';
+import { json, parsePathParams } from '../../utils/http';
 import type { ScheduleGameRecord } from '@/types/schedules';
 import type { EspnGameRecord } from '@/types/espn';
 
@@ -13,12 +13,10 @@ import type { EspnGameRecord } from '@/types/espn';
 //
 // Returns the week's META item, its configured games, and any matching ESPN
 // game data keyed by game_id. Non-admin users cannot see unpublished weeks.
-export const handler = withAuth(async (event: APIGatewayProxyEventV2, user: UserRecord) => {
-  const { year, seasonType, week } = event.pathParameters ?? {};
-
-  if (!year || !seasonType || !week) {
-    return json(400, { error: 'Missing path parameters' });
-  }
+export const handler = withAuth(async (event: APIGatewayProxyEventV2, user: User) => {
+  const pathResult = parsePathParams(event, 'year', 'seasonType', 'week');
+  if (!pathResult.ok) return pathResult.response;
+  const { year, seasonType, week } = pathResult.params;
 
   const schedulesTable = Resource.SchedulesTable.name;
   const espnTable = Resource.EspnGames.name;

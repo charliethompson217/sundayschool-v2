@@ -2,7 +2,7 @@ import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
 import { buildWeekPk, getDocClient } from '../client';
 import { buildGameLookupGsiPk } from './writes';
-import type { EspnGameRecord } from '@/types/espn';
+import { EspnGameRecordSchema, type EspnGameRecord } from '@/types/espn';
 
 export type { EspnGameRecord };
 
@@ -27,7 +27,7 @@ async function paginatedScan(
         ExclusiveStartKey: lastKey,
       }),
     );
-    items.push(...((result.Items as EspnGameRecord[]) ?? []));
+    items.push(...(result.Items ?? []).map((item) => EspnGameRecordSchema.parse(item)));
     lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
   } while (lastKey);
 
@@ -48,7 +48,8 @@ export async function getGameById(tableName: string, gameId: string): Promise<Es
       Limit: 1,
     }),
   );
-  return (result.Items?.[0] as EspnGameRecord) ?? null;
+  const item = result.Items?.[0];
+  return item ? EspnGameRecordSchema.parse(item) : null;
 }
 
 export async function getGamesByWeek(
@@ -66,7 +67,7 @@ export async function getGamesByWeek(
       ExpressionAttributeValues: { ':pk': pk },
     }),
   );
-  return (result.Items as EspnGameRecord[]) ?? [];
+  return (result.Items ?? []).map((item) => EspnGameRecordSchema.parse(item));
 }
 
 export async function getGamesBySeason(tableName: string, year: string, seasonType: string): Promise<EspnGameRecord[]> {

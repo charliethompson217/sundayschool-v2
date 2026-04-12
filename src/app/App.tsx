@@ -1,5 +1,3 @@
-// src/App.tsx
-
 import { Routes, Route, Outlet } from 'react-router-dom';
 import { Navbar } from './nav/Navbar';
 import { routes } from './pages/index.tsx';

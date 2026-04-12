@@ -1,5 +1,3 @@
-// src/components/AuthWrapper.tsx
-
 import React from 'react';
 import { useAuth } from '../app/context/auth/useAuth.ts';
 import { Navigate } from 'react-router-dom';

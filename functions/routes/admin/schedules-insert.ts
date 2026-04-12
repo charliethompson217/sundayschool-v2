@@ -1,42 +1,27 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { Resource } from 'sst';
 
-import { withAuth } from '../../utils/auth/cognito-auth';
+import { withAdmin } from '../../utils/auth/cognito-auth';
 import { buildMetaItem, buildGameItem, insertWeek } from '../../db/schedules/schedules';
-import type { UserRecord } from '../../db/users/users';
-import { json } from '../../utils/http';
+import { json, parsePathParams, parseJsonBody, validateBody } from '../../utils/http';
 import { RegularWeekBodySchema, PlayoffWeekBodySchema } from '@/types/schedules';
 
 // POST /admin/schedules/{year}/{seasonType}/{week}
 //
 // Creates a new week schedule. Returns 409 if the week already exists.
-// Admin only. Body shape depends on seasonType:
-//   seasonType 2 (regular): { meta: RegularMetaInput, games: RegularGameInput[] }
-//   seasonType 3 (playoff):  { meta: PlayoffMetaInput, games: PlayoffGameInput[] }
-export const handler = withAuth(async (event: APIGatewayProxyEventV2, user: UserRecord) => {
-  if (!user.isAdmin) {
-    return json(403, { error: 'Forbidden' });
-  }
+export const handler = withAdmin(async (event: APIGatewayProxyEventV2) => {
+  const pathResult = parsePathParams(event, 'year', 'seasonType', 'week');
+  if (!pathResult.ok) return pathResult.response;
+  const { year, seasonType, week } = pathResult.params;
 
-  const { year, seasonType, week } = event.pathParameters ?? {};
-  if (!year || !seasonType || !week) {
-    return json(400, { error: 'Missing path parameters' });
-  }
-
-  let rawBody: unknown;
-  try {
-    rawBody = JSON.parse(event.body ?? '{}');
-  } catch {
-    return json(400, { error: 'Invalid JSON body' });
-  }
+  const bodyResult = parseJsonBody(event);
+  if (!bodyResult.ok) return bodyResult.response;
 
   const bodySchema = seasonType === '3' ? PlayoffWeekBodySchema : RegularWeekBodySchema;
-  const parsed = bodySchema.safeParse(rawBody);
-  if (!parsed.success) {
-    return json(400, { error: 'Validation failed', issues: parsed.error.issues });
-  }
+  const validated = validateBody(bodySchema, bodyResult.data);
+  if (!validated.ok) return validated.response;
 
-  const { meta: metaInput, games: gamesInput } = parsed.data;
+  const { meta: metaInput, games: gamesInput } = validated.data;
   const tableName = Resource.SchedulesTable.name;
 
   const metaItem = buildMetaItem(year, seasonType, week, metaInput);

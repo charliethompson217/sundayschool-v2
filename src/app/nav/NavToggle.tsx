@@ -1,5 +1,3 @@
-// src/app/nav/NavToggle.tsx
-
 import { NavLink } from '@mantine/core';
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 

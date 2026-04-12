@@ -1,5 +1,3 @@
-// src/app/routes/Home.tsx
-
 import { Title } from '@mantine/core';
 import { useAuth } from '../context/auth/useAuth.ts';
 import AuthPage from './AuthPage.tsx';

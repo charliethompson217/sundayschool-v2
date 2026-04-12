@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { EspnGameRecordSchema } from './espn';
+import { PickKindSchema } from './submissions';
 
 // ── Admin POST/PUT body (Zod validation, Lambda handlers) ────────────────────
 //
@@ -65,7 +66,7 @@ const WeekMetaPayloadSchema = z.object({
   year: z.string(),
   season_type: z.string(),
   week: z.string(),
-  kind: z.enum(['regular', 'playoff']),
+  kind: PickKindSchema,
   is_published: z.boolean(),
   submission_opens_at: z.string().nullable(),
   submission_closes_at: z.string().nullable(),
@@ -141,12 +142,4 @@ export type WeekMeta = z.infer<typeof WeekMetaSchema>;
 export type ScheduleGame = z.infer<typeof ScheduleGameSchema>;
 export type WeekDetail = z.infer<typeof WeekDetailSchema>;
 
-// ── Client form / fetch body (regular meta + optional playoff fields) ────────
-
-export type WeekMetaInput = RegularMetaInput &
-  Partial<Pick<PlayoffMetaInput, 'round_name' | 'allow_straight_bets' | 'allow_parlay' | 'parlay_leg_count'>>;
-
-export type WeekUpdateBody = {
-  meta: WeekMetaInput;
-  games: RegularGameInput[] | PlayoffGameInput[];
-};
+export type WeekUpdateBody = RegularWeekBody | PlayoffWeekBody;

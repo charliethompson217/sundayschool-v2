@@ -21,14 +21,7 @@ import {
 } from '@mantine/core';
 
 import { getScheduleWeekDetail, updateScheduleWeek } from '@/app/API/adminFunctions';
-import type {
-  PlayoffGameInput,
-  RegularGameInput,
-  ScheduleGame,
-  WeekDetail,
-  WeekMeta,
-  WeekUpdateBody,
-} from '@/types/schedules';
+import type { ScheduleGame, WeekDetail, WeekMeta, WeekUpdateBody } from '@/types/schedules';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -162,35 +155,39 @@ function buildSaveBody(
   gamesForms: Record<string, GameFormState>,
   games: ScheduleGame[],
 ): WeekUpdateBody {
-  const metaInput = {
+  const baseMeta = {
     is_published: metaForm.is_published,
     submission_opens_at: dateTimeLocalToIso(metaForm.submission_opens_at),
     submission_closes_at: dateTimeLocalToIso(metaForm.submission_closes_at),
     notes: metaForm.notes || null,
-    ...(meta.kind === 'playoff' && {
-      round_name: metaForm.round_name,
-      allow_straight_bets: metaForm.allow_straight_bets,
-      allow_parlay: metaForm.allow_parlay,
-      parlay_leg_count: metaForm.parlay_leg_count,
-    }),
   };
 
   if (meta.kind === 'playoff') {
-    const playoffGames: PlayoffGameInput[] = games.map((g) => ({
-      game_id: g.game_id,
-      is_wagerable: gamesForms[g.game_id]?.is_wagerable ?? false,
-    }));
-    return { meta: metaInput, games: playoffGames };
+    return {
+      meta: {
+        ...baseMeta,
+        round_name: metaForm.round_name,
+        allow_straight_bets: metaForm.allow_straight_bets,
+        allow_parlay: metaForm.allow_parlay,
+        parlay_leg_count: metaForm.parlay_leg_count,
+      },
+      games: games.map((g) => ({
+        game_id: g.game_id,
+        is_wagerable: gamesForms[g.game_id]?.is_wagerable ?? false,
+      })),
+    };
   }
 
-  const regularGames: RegularGameInput[] = games.map((g) => ({
-    game_id: g.game_id,
-    include_in_rank: gamesForms[g.game_id]?.include_in_rank ?? true,
-    include_in_file: gamesForms[g.game_id]?.include_in_file ?? true,
-    description: gamesForms[g.game_id]?.description || null,
-    special_tag: gamesForms[g.game_id]?.special_tag || null,
-  }));
-  return { meta: metaInput, games: regularGames };
+  return {
+    meta: baseMeta,
+    games: games.map((g) => ({
+      game_id: g.game_id,
+      include_in_rank: gamesForms[g.game_id]?.include_in_rank ?? true,
+      include_in_file: gamesForms[g.game_id]?.include_in_file ?? true,
+      description: gamesForms[g.game_id]?.description || null,
+      special_tag: gamesForms[g.game_id]?.special_tag || null,
+    })),
+  };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────

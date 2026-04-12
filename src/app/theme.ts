@@ -1,5 +1,3 @@
-// src/app/theme.ts
-
 import { createTheme, type CSSVariablesResolver } from '@mantine/core';
 
 // ---------------------------------------------------------------------------

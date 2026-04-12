@@ -1,5 +1,3 @@
-// src/app/nav/NavLinks.tsx
-
 import { NavLink, Tooltip } from '@mantine/core';
 import { Link, useLocation } from 'react-router-dom';
 import { routes } from '../pages/index.tsx';

@@ -3,32 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 
 import { getDocClient } from '../client';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface UserRecord {
-  id: string;
-  email: string;
-  username: string;
-  firstName: string;
-  lastName: string;
-  phone?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  isAdmin: boolean;
-  isSystemAdmin: boolean;
-  isActive: boolean;
-  isVerified: boolean;
-  isPlayer: boolean;
-}
-
-export interface CreateUserParams {
-  email: string;
-  username: string;
-  firstName: string;
-  lastName: string;
-  phone?: string | null;
-}
+import { UserSchema, type User, type CreateUserParams } from '@/types/users';
 
 // ── Key builders ──────────────────────────────────────────────────────────────
 
@@ -42,15 +17,11 @@ function emailGsiPk(email: string): string {
 
 // ── Operations ────────────────────────────────────────────────────────────────
 
-/**
- * Insert a new user record with an immutable UUID.
- * Throws if a record with this PK already exists (should never happen with UUIDs).
- */
-export async function createUser(tableName: string, params: CreateUserParams): Promise<UserRecord> {
+export async function createUser(tableName: string, params: CreateUserParams): Promise<User> {
   const now = new Date().toISOString();
   const id = randomUUID();
 
-  const user: UserRecord = {
+  const user: User = {
     id,
     email: params.email.toLowerCase(),
     username: params.username,
@@ -62,7 +33,7 @@ export async function createUser(tableName: string, params: CreateUserParams): P
     isAdmin: false,
     isSystemAdmin: false,
     isActive: true,
-    isVerified: true, // PostConfirmation only fires after email verification
+    isVerified: true,
     isPlayer: true,
   };
 
@@ -93,11 +64,7 @@ export async function createUser(tableName: string, params: CreateUserParams): P
   return user;
 }
 
-/**
- * Look up a user by email via the GSI. Used by the auth middleware on every
- * authenticated request — email is the only claim verified by the Cognito JWT.
- */
-export async function getUserByEmail(tableName: string, email: string): Promise<UserRecord | null> {
+export async function getUserByEmail(tableName: string, email: string): Promise<User | null> {
   const gsi1pk = emailGsiPk(email);
 
   const result = await getDocClient().send(
@@ -111,13 +78,10 @@ export async function getUserByEmail(tableName: string, email: string): Promise<
   );
 
   const item = result.Items?.[0];
-  return item ? itemToUserRecord(item) : null;
+  return item ? UserSchema.parse(item) : null;
 }
 
-/**
- * Look up a user by their immutable UUID.
- */
-export async function getUserById(tableName: string, id: string): Promise<UserRecord | null> {
+export async function getUserById(tableName: string, id: string): Promise<User | null> {
   const pk = userPk(id);
 
   const result = await getDocClient().send(
@@ -127,15 +91,11 @@ export async function getUserById(tableName: string, id: string): Promise<UserRe
     }),
   );
 
-  return result.Item ? itemToUserRecord(result.Item) : null;
+  return result.Item ? UserSchema.parse(result.Item) : null;
 }
 
-/**
- * Scan all user records from the table.
- * Uses a FilterExpression to target only the #META items (one per user).
- */
-export async function getAllUsers(tableName: string): Promise<UserRecord[]> {
-  const users: UserRecord[] = [];
+export async function getAllUsers(tableName: string): Promise<User[]> {
+  const users: User[] = [];
   let lastKey: Record<string, unknown> | undefined;
 
   do {
@@ -149,31 +109,11 @@ export async function getAllUsers(tableName: string): Promise<UserRecord[]> {
     );
 
     for (const item of result.Items ?? []) {
-      users.push(itemToUserRecord(item as Record<string, unknown>));
+      users.push(UserSchema.parse(item));
     }
 
     lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
   } while (lastKey);
 
   return users;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function itemToUserRecord(item: Record<string, unknown>): UserRecord {
-  return {
-    id: item.id as string,
-    email: item.email as string,
-    username: item.username as string,
-    firstName: item.firstName as string,
-    lastName: item.lastName as string,
-    phone: (item.phone as string | null | undefined) ?? null,
-    createdAt: item.createdAt as string,
-    updatedAt: item.updatedAt as string,
-    isAdmin: Boolean(item.isAdmin),
-    isSystemAdmin: Boolean(item.isSystemAdmin),
-    isActive: Boolean(item.isActive),
-    isVerified: Boolean(item.isVerified),
-    isPlayer: Boolean(item.isPlayer),
-  };
 }

@@ -67,7 +67,7 @@ describe('createUser', () => {
     mockSend.mockResolvedValue({});
   });
 
-  it('returns a UserRecord with correct defaults', async () => {
+  it('returns a User with correct defaults', async () => {
     const user = await createUser(TABLE, {
       email: 'Test@Example.com',
       username: 'tester',
@@ -143,7 +143,7 @@ describe('getUserByEmail', () => {
     mockSend.mockResolvedValue({});
   });
 
-  it('returns a UserRecord when the item is found', async () => {
+  it('returns a User when the item is found', async () => {
     mockSend.mockResolvedValueOnce({ Items: [baseItem] });
     const result = await getUserByEmail(TABLE, 'user@test.com');
     expect(result?.id).toBe('u1');
@@ -181,7 +181,7 @@ describe('getUserById', () => {
     mockSend.mockResolvedValue({});
   });
 
-  it('returns a UserRecord when found', async () => {
+  it('returns a User when found', async () => {
     mockSend.mockResolvedValueOnce({ Item: baseItem });
     const result = await getUserById(TABLE, 'u1');
     expect(result?.id).toBe('u1');

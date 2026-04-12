@@ -1,5 +1,3 @@
-// src/main.tsx
-
 import '@mantine/core/styles.css';
 import { theme, resolver } from './theme.ts';
 import { MantineProvider } from '@mantine/core';

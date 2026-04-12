@@ -6,8 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import PlayOffs from '@/components/submissions/PlayOffs';
 import RegularSeason from '@/components/submissions/RegularSeason';
 import { getSeasonPhase, getYears } from '@/app/API/scheduleFunctions';
-
-type View = 'playoffs' | 'regular';
+import type { PickKind } from '@/types/submissions';
 
 export default function SubmitPicksRoute() {
   const [weekSelected, setWeekSelected] = useState(false);
@@ -31,15 +30,14 @@ export default function SubmitPicksRoute() {
     queryFn: getYears,
   });
 
-  const [view, setView] = useState<View | null>(null);
+  const [view, setView] = useState<PickKind | null>(null);
   const latestYear = years?.length ? Math.max(...years) : null;
 
-  // Default view tracks the resolved phase; view can be overridden by the user.
-  const resolvedView: View = view ?? (phase === 'playoffs' ? 'playoffs' : 'regular');
+  const resolvedView: PickKind = view ?? (phase === 'playoff' ? 'playoff' : 'regular');
   const resolvedYear = year ?? latestYear;
 
   function handleViewChange(v: string) {
-    setView(v as View);
+    setView(v as PickKind);
     setWeekSelected(false);
   }
 
@@ -75,7 +73,7 @@ export default function SubmitPicksRoute() {
             onChange={handleViewChange}
             data={[
               { label: 'Regular Season', value: 'regular' },
-              { label: 'Playoffs', value: 'playoffs' },
+              { label: 'Playoffs', value: 'playoff' },
             ]}
             size="sm"
             fullWidth
