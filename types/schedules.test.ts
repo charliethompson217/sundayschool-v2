@@ -37,8 +37,8 @@ describe('RegularMetaInputSchema', () => {
     expect(RegularMetaInputSchema.safeParse(validRegularMeta).success).toBe(true);
   });
 
-  it('accepts null submission times', () => {
-    const meta = { ...validRegularMeta, submission_opens_at: null, submission_closes_at: null };
+  it('accepts null submission_opens_at', () => {
+    const meta = { ...validRegularMeta, submission_opens_at: null };
     expect(RegularMetaInputSchema.safeParse(meta).success).toBe(true);
   });
 

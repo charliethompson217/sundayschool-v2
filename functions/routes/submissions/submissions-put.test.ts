@@ -76,9 +76,15 @@ const CLOSED_META = {
   submission_closes_at: '2020-01-01T00:00:00.000Z',
 };
 
-const NO_DEADLINE_META = {
+const NOT_YET_OPEN_META = {
   ...OPEN_META,
-  submission_closes_at: null,
+  // Far future — window hasn't opened yet
+  submission_opens_at: '2099-01-01T00:00:00.000Z',
+};
+
+const NULL_OPENS_AT_META = {
+  ...OPEN_META,
+  submission_opens_at: null,
 };
 
 const VALID_REGULAR_PICKS = {
@@ -181,8 +187,7 @@ describe('submissions-put handler', () => {
     expect(body(res).closes_at).toBe(CLOSED_META.submission_closes_at);
   });
 
-  it('allows submission when submission_closes_at is null (no deadline)', async () => {
-    mockGetWeekMeta.mockResolvedValue(NO_DEADLINE_META);
+  it('allows submission when submission_closes_at is in the future', async () => {
     const res = await invoke(
       { year: '2024', seasonType: '2', week: '1' },
       { kind: 'regular', picks: VALID_REGULAR_PICKS },
@@ -190,7 +195,27 @@ describe('submissions-put handler', () => {
     expect(res.statusCode).toBe(200);
   });
 
-  it('allows submission when submission_closes_at is in the future', async () => {
+  it('returns 409 when submission_opens_at is in the future', async () => {
+    mockGetWeekMeta.mockResolvedValue(NOT_YET_OPEN_META);
+    const res = await invoke(
+      { year: '2024', seasonType: '2', week: '1' },
+      { kind: 'regular', picks: VALID_REGULAR_PICKS },
+    );
+    expect(res.statusCode).toBe(409);
+    expect(body(res).error).toMatch(/not opened yet/);
+    expect(body(res).opens_at).toBe(NOT_YET_OPEN_META.submission_opens_at);
+  });
+
+  it('allows submission when submission_opens_at is null', async () => {
+    mockGetWeekMeta.mockResolvedValue(NULL_OPENS_AT_META);
+    const res = await invoke(
+      { year: '2024', seasonType: '2', week: '1' },
+      { kind: 'regular', picks: VALID_REGULAR_PICKS },
+    );
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('allows submission when submission_opens_at is in the past', async () => {
     const res = await invoke(
       { year: '2024', seasonType: '2', week: '1' },
       { kind: 'regular', picks: VALID_REGULAR_PICKS },

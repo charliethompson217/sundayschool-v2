@@ -3,7 +3,7 @@ import { Resource } from 'sst';
 
 import { verifyHmacSignature } from '../../utils/auth/hmac-auth';
 import { writeGameFinal, writeScheduleUpsert } from '../../db/espn/writes';
-import { upsertScheduleFromEspn } from '../../db/schedules/schedules';
+import { upsertScheduleFromEspn } from '../../db/schedules/upsert-from-espn';
 import { json } from '../../utils/http';
 import { EspnIngestBodySchema } from '@/types/espn';
 
@@ -96,24 +96,11 @@ async function handleIngest(event: APIGatewayProxyEventV2): Promise<APIGatewayPr
       weekMap.set(key, bucket);
     }
 
-    for (const weekGames of weekMap.values()) {
-      const first = weekGames[0];
+    for (const [key, weekGames] of weekMap.entries()) {
       try {
-        await upsertScheduleFromEspn(
-          Resource.SchedulesTable.name,
-          first.year,
-          first.season_type,
-          first.week,
-          first.week_text,
-          weekGames.map((g) => g.game_id),
-        );
+        await upsertScheduleFromEspn(Resource.SchedulesTable.name, weekGames);
       } catch (err) {
-        console.error('Schedule auto-fill failed', {
-          year: first.year,
-          seasonType: first.season_type,
-          week: first.week,
-          error: String(err),
-        });
+        console.error('Schedule auto-fill failed', { week: key, error: String(err) });
       }
     }
   } else {

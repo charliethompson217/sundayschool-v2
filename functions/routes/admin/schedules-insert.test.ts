@@ -67,7 +67,7 @@ const playoffBody = {
   meta: {
     is_published: false,
     submission_opens_at: null,
-    submission_closes_at: null,
+    submission_closes_at: '2024-01-13T18:30:00.000Z',
     round_name: 'Wild Card',
     allow_straight_bets: true,
     allow_parlay: false,

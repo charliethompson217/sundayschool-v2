@@ -1,6 +1,8 @@
 import '@mantine/core/styles.css';
+import '@mantine/dates/styles.css';
 import { theme, resolver } from './theme.ts';
 import { MantineProvider } from '@mantine/core';
+import { DatesProvider } from '@mantine/dates';
 import { Amplify } from 'aws-amplify';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/auth/AuthProvider.tsx';
@@ -21,7 +23,9 @@ export const Providers: React.FC<{ children: React.ReactNode }> = ({ children })
   return (
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={theme} cssVariablesResolver={resolver} defaultColorScheme="auto">
-        <AuthProvider>{children}</AuthProvider>
+        <DatesProvider settings={{ locale: 'en' }}>
+          <AuthProvider>{children}</AuthProvider>
+        </DatesProvider>
       </MantineProvider>
     </QueryClientProvider>
   );

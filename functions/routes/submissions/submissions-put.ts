@@ -28,7 +28,11 @@ export const handler = withAuth(async (event: APIGatewayProxyEventV2, user: User
     return json(404, { error: 'Week not found' });
   }
 
-  if (meta.submission_closes_at && new Date() > new Date(meta.submission_closes_at)) {
+  if (meta.submission_opens_at && new Date() < new Date(meta.submission_opens_at)) {
+    return json(409, { error: 'Submission window has not opened yet', opens_at: meta.submission_opens_at });
+  }
+
+  if (new Date() > new Date(meta.submission_closes_at)) {
     return json(409, { error: 'Submission window has closed', closes_at: meta.submission_closes_at });
   }
 

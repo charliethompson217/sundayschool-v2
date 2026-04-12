@@ -19,52 +19,12 @@ import {
   Title,
   Textarea,
 } from '@mantine/core';
+import { DateTimePicker } from '@mantine/dates';
 
 import { getScheduleWeekDetail, updateScheduleWeek } from '@/app/API/adminFunctions';
 import type { ScheduleGame, WeekDetail, WeekMeta, WeekUpdateBody } from '@/types/schedules';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function pad2(n: number): string {
-  return String(n).padStart(2, '0');
-}
-
-/**
- * Converts a stored ISO timestamp into a value suitable for
- * <input type="datetime-local"> in the viewer's local timezone.
- *
- * Example:
- *   "2025-09-04T20:25:00.000Z" -> "2025-09-04T16:25" (for America/New_York in EDT)
- */
-function isoToDateTimeLocal(iso: string | null | undefined): string {
-  if (!iso) return '';
-
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-
-  const year = date.getFullYear();
-  const month = pad2(date.getMonth() + 1);
-  const day = pad2(date.getDate());
-  const hour = pad2(date.getHours());
-  const minute = pad2(date.getMinutes());
-
-  return `${year}-${month}-${day}T${hour}:${minute}`;
-}
-
-/**
- * Converts a local datetime-local input value into a real UTC ISO string.
- *
- * Example:
- *   "2025-09-04T16:25" -> "2025-09-04T20:25:00.000Z" (for America/New_York in EDT)
- */
-function dateTimeLocalToIso(val: string): string | null {
-  if (!val) return null;
-
-  const date = new Date(val);
-  if (Number.isNaN(date.getTime())) return null;
-
-  return date.toISOString();
-}
 
 /**
  * Formats an ISO timestamp in the viewer's local timezone and includes
@@ -109,8 +69,8 @@ const SEASON_TYPE_LABELS: Record<string, string> = {
 
 interface MetaFormState {
   is_published: boolean;
-  submission_opens_at: string;
-  submission_closes_at: string;
+  submission_opens_at: string | null;
+  submission_closes_at: string | null;
   notes: string;
   round_name: string;
   allow_straight_bets: boolean;
@@ -129,8 +89,8 @@ interface GameFormState {
 function metaToFormState(meta: WeekMeta): MetaFormState {
   return {
     is_published: meta.is_published,
-    submission_opens_at: isoToDateTimeLocal(meta.submission_opens_at),
-    submission_closes_at: isoToDateTimeLocal(meta.submission_closes_at),
+    submission_opens_at: meta.submission_opens_at ?? null,
+    submission_closes_at: meta.submission_closes_at,
     notes: meta.notes ?? '',
     round_name: meta.round_name ?? '',
     allow_straight_bets: meta.allow_straight_bets ?? true,
@@ -157,8 +117,8 @@ function buildSaveBody(
 ): WeekUpdateBody {
   const baseMeta = {
     is_published: metaForm.is_published,
-    submission_opens_at: dateTimeLocalToIso(metaForm.submission_opens_at),
-    submission_closes_at: dateTimeLocalToIso(metaForm.submission_closes_at),
+    submission_opens_at: metaForm.submission_opens_at,
+    submission_closes_at: metaForm.submission_closes_at!,
     notes: metaForm.notes || null,
   };
 
@@ -214,14 +174,15 @@ export default function ScheduleWeekDetail({ year, seasonType, week }: Props) {
 
   const [metaForm, setMetaForm] = useState<MetaFormState>({
     is_published: false,
-    submission_opens_at: '',
-    submission_closes_at: '',
+    submission_opens_at: null,
+    submission_closes_at: null,
     notes: '',
     round_name: '',
     allow_straight_bets: true,
     allow_parlay: false,
     parlay_leg_count: 2,
   });
+  const [closesAtError, setClosesAtError] = useState<string | null>(null);
   const [gamesForms, setGamesForms] = useState<Record<string, GameFormState>>({});
   const [initialized, setInitialized] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -371,27 +332,27 @@ export default function ScheduleWeekDetail({ year, seasonType, week }: Props) {
                 <Text size="xs" fw={600} c="dimmed" tt="uppercase">
                   Submission Window ({localTimeZone})
                 </Text>
-                <TextInput
+                <DateTimePicker
                   label="Opens at"
-                  description={
-                    metaForm.submission_opens_at
-                      ? `${formatLocalDateTime(dateTimeLocalToIso(metaForm.submission_opens_at))}`
-                      : `Enter local time (${localTimeZone})`
-                  }
-                  type="datetime-local"
+                  placeholder="Pick date & time"
                   value={metaForm.submission_opens_at}
-                  onChange={(e) => updateMeta('submission_opens_at', e.currentTarget.value)}
+                  onChange={(val) => updateMeta('submission_opens_at', val)}
+                  valueFormat="MMM D, YYYY h:mm A"
+                  clearable
+                  size="sm"
                 />
-                <TextInput
+                <DateTimePicker
                   label="Closes at"
-                  description={
-                    metaForm.submission_closes_at
-                      ? `${formatLocalDateTime(dateTimeLocalToIso(metaForm.submission_closes_at))}`
-                      : `Enter local time (${localTimeZone})`
-                  }
-                  type="datetime-local"
+                  placeholder="Pick date & time"
                   value={metaForm.submission_closes_at}
-                  onChange={(e) => updateMeta('submission_closes_at', e.currentTarget.value)}
+                  onChange={(val) => {
+                    updateMeta('submission_closes_at', val);
+                    if (val) setClosesAtError(null);
+                  }}
+                  valueFormat="MMM D, YYYY h:mm A"
+                  size="sm"
+                  withAsterisk
+                  error={closesAtError}
                 />
               </Stack>
 
@@ -527,21 +488,23 @@ export default function ScheduleWeekDetail({ year, seasonType, week }: Props) {
                             </Group>
                           </Radio.Group>
 
-                          <Radio.Group
-                            label="Special tag"
-                            value={
-                              form.special_tag === 'thanksgiving' || form.special_tag === 'christmas'
-                                ? form.special_tag
-                                : 'none'
-                            }
-                            onChange={(val) => updateGame(game.game_id, { special_tag: val === 'none' ? '' : val })}
-                          >
-                            <Group gap="sm" mt={6}>
-                              <Radio value="none" label="None" />
-                              <Radio value="thanksgiving" label="Thanksgiving" />
-                              <Radio value="christmas" label="Christmas" />
-                            </Group>
-                          </Radio.Group>
+                          {!form.include_in_rank && form.include_in_file && (
+                            <Radio.Group
+                              label="Special tag"
+                              value={
+                                form.special_tag === 'thanksgiving' || form.special_tag === 'christmas'
+                                  ? form.special_tag
+                                  : 'none'
+                              }
+                              onChange={(val) => updateGame(game.game_id, { special_tag: val === 'none' ? '' : val })}
+                            >
+                              <Group gap="sm" mt={6}>
+                                <Radio value="none" label="None" />
+                                <Radio value="thanksgiving" label="Thanksgiving" />
+                                <Radio value="christmas" label="Christmas" />
+                              </Group>
+                            </Radio.Group>
+                          )}
                         </Group>
 
                         <TextInput
@@ -565,7 +528,14 @@ export default function ScheduleWeekDetail({ year, seasonType, week }: Props) {
         <Button
           size="md"
           loading={saveMutation.isPending}
-          onClick={() => saveMutation.mutate()}
+          onClick={() => {
+            if (!metaForm.submission_closes_at) {
+              setClosesAtError('Submission close time is required');
+              return;
+            }
+            setClosesAtError(null);
+            saveMutation.mutate();
+          }}
           style={{
             backgroundColor: 'var(--app-primary-button-bg)',
             color: 'var(--app-primary-button-text)',

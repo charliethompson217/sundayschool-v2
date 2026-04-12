@@ -51,8 +51,9 @@ import {
   listAllWeekMetas,
   listSeasonWeekMetas,
   updateWeek,
-  upsertScheduleFromEspn,
 } from './schedules';
+import { upsertScheduleFromEspn } from './upsert-from-espn';
+import type { ScheduleUpsertGame } from '@/types/espn';
 
 const TABLE = 'test-schedules';
 
@@ -140,7 +141,7 @@ describe('buildMetaItem — playoffs', () => {
   const playoffInput = {
     is_published: true,
     submission_opens_at: null,
-    submission_closes_at: null,
+    submission_closes_at: '2024-01-13T18:30:00.000Z',
     round_name: 'Wild Card',
     allow_straight_bets: true,
     allow_parlay: false,
@@ -230,7 +231,7 @@ describe('insertWeek', () => {
   const meta = buildMetaItem('2024', '2', '1', {
     is_published: false,
     submission_opens_at: null,
-    submission_closes_at: null,
+    submission_closes_at: '2024-09-05T20:20:00.000Z',
   });
   const game = buildGameItem('2024', '2', '1', {
     game_id: '401547417',
@@ -291,7 +292,7 @@ describe('updateWeek', () => {
   const meta = buildMetaItem('2024', '2', '1', {
     is_published: true,
     submission_opens_at: null,
-    submission_closes_at: null,
+    submission_closes_at: '2024-09-05T20:20:00.000Z',
   });
   const newGame = buildGameItem('2024', '2', '1', {
     game_id: 'new-game',
@@ -383,7 +384,7 @@ describe('getWeekMeta', () => {
       kind: 'regular',
       is_published: false,
       submission_opens_at: null,
-      submission_closes_at: null,
+      submission_closes_at: '2024-09-06T17:00:00.000Z',
     };
     mockSend.mockResolvedValueOnce({ Item: fakeItem });
     const result = await getWeekMeta(TABLE, '2024', '2', '1');
@@ -464,8 +465,41 @@ describe('upsertScheduleFromEspn', () => {
     mockSend.mockResolvedValue({});
   });
 
+  function makeGame(overrides: Partial<ScheduleUpsertGame> = {}): ScheduleUpsertGame {
+    return {
+      game_id: '401547417',
+      competition_id: 'comp-1',
+      year: '2024',
+      season_type: '2',
+      week: '1',
+      week_text: 'Week 1',
+      start_time: '2024-09-05T20:20:00.000Z',
+      home_team_id: 'team-1',
+      away_team_id: 'team-2',
+      home: 'Chiefs',
+      away: 'Ravens',
+      competition_type: 'standard',
+      competition_type_slug: 'nfl-regular-season',
+      neutral_site: false,
+      venue_id: null,
+      venue_full_name: null,
+      venue_city: null,
+      venue_state: null,
+      venue_country: null,
+      ...overrides,
+    };
+  }
+
+  it('does nothing when games is empty', async () => {
+    await upsertScheduleFromEspn(TABLE, []);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
   it('conditionally creates META and each game', async () => {
-    await upsertScheduleFromEspn(TABLE, '2024', '2', '1', 'Week 1', ['401547417', '401547418']);
+    await upsertScheduleFromEspn(TABLE, [
+      makeGame({ game_id: '401547417' }),
+      makeGame({ game_id: '401547418', start_time: '2024-09-05T23:30:00.000Z' }),
+    ]);
     expect(mockSend).toHaveBeenCalledTimes(3);
 
     const metaCmd = mockSend.mock.calls[0][0] as { input: Record<string, unknown> };
@@ -474,35 +508,41 @@ describe('upsertScheduleFromEspn', () => {
     expect((metaCmd.input.Item as Record<string, unknown>).is_published).toBe(false);
   });
 
+  it('sets submission_closes_at to the earliest game kickoff', async () => {
+    await upsertScheduleFromEspn(TABLE, [makeGame()]);
+    const metaCmd = mockSend.mock.calls[0][0] as { input: Record<string, unknown> };
+    expect((metaCmd.input.Item as Record<string, unknown>).submission_closes_at).toBe('2024-09-05T20:20:00.000Z');
+  });
+
   it('sets kind = regular for regular season', async () => {
-    await upsertScheduleFromEspn(TABLE, '2024', '2', '1', 'Week 1', []);
+    await upsertScheduleFromEspn(TABLE, [makeGame({ season_type: '2' })]);
     const metaCmd = mockSend.mock.calls[0][0] as { input: Record<string, unknown> };
     expect((metaCmd.input.Item as Record<string, unknown>).kind).toBe('regular');
   });
 
   it('sets kind = playoff and round_name for season type 3', async () => {
-    await upsertScheduleFromEspn(TABLE, '2024', '3', '1', 'Wild Card', []);
+    await upsertScheduleFromEspn(TABLE, [makeGame({ season_type: '3', week_text: 'Wild Card' })]);
     const metaCmd = mockSend.mock.calls[0][0] as { input: Record<string, unknown> };
     const item = metaCmd.input.Item as Record<string, unknown>;
     expect(item.kind).toBe('playoff');
     expect(item.round_name).toBe('Wild Card');
     expect(item.allow_straight_bets).toBe(true);
-    expect(item.allow_parlay).toBe(false);
+    expect(item.allow_parlay).toBe(true);
   });
 
   it('silently skips META creation when week already exists', async () => {
     mockSend.mockRejectedValueOnce(new MockConditionalCheckFailedException());
-    await expect(upsertScheduleFromEspn(TABLE, '2024', '2', '1', 'Week 1', [])).resolves.toBeUndefined();
+    await expect(upsertScheduleFromEspn(TABLE, [makeGame()])).resolves.toBeUndefined();
   });
 
   it('rethrows non-conditional errors from META creation', async () => {
     mockSend.mockRejectedValueOnce(new Error('network failure'));
-    await expect(upsertScheduleFromEspn(TABLE, '2024', '2', '1', 'Week 1', [])).rejects.toThrow('network failure');
+    await expect(upsertScheduleFromEspn(TABLE, [makeGame()])).rejects.toThrow('network failure');
   });
 
   it('silently skips a game that already exists', async () => {
     mockSend.mockResolvedValueOnce({}).mockRejectedValueOnce(new MockConditionalCheckFailedException());
-    await expect(upsertScheduleFromEspn(TABLE, '2024', '2', '1', 'Week 1', ['401547417'])).resolves.toBeUndefined();
+    await expect(upsertScheduleFromEspn(TABLE, [makeGame()])).resolves.toBeUndefined();
   });
 });
 
@@ -522,7 +562,7 @@ describe('listSeasonWeekMetas', () => {
       kind: 'regular',
       is_published: false,
       submission_opens_at: null,
-      submission_closes_at: null,
+      submission_closes_at: '2024-09-06T17:00:00.000Z',
     };
     const items = [
       { ...baseMeta, pk: 'SEASON#2024#TYPE#2#WEEK#1', sk: 'META', gsi1sk: 'WEEK#1#META', week: '1' },
@@ -570,7 +610,7 @@ describe('listAllWeekMetas', () => {
         kind: 'regular',
         is_published: false,
         submission_opens_at: null,
-        submission_closes_at: null,
+        submission_closes_at: '2024-09-06T17:00:00.000Z',
       },
       {
         pk: 'SEASON#2024#TYPE#3#WEEK#1',
@@ -583,7 +623,7 @@ describe('listAllWeekMetas', () => {
         kind: 'playoff',
         is_published: false,
         submission_opens_at: null,
-        submission_closes_at: null,
+        submission_closes_at: '2025-01-11T18:00:00.000Z',
       },
     ];
     mockSend.mockResolvedValueOnce({ Items: items, LastEvaluatedKey: undefined });
@@ -605,7 +645,7 @@ describe('listAllWeekMetas', () => {
       kind: 'regular',
       is_published: false,
       submission_opens_at: null,
-      submission_closes_at: null,
+      submission_closes_at: '2024-09-06T17:00:00.000Z',
     };
     const page1 = [{ ...baseMeta, pk: 'SEASON#2024#TYPE#2#WEEK#1', sk: 'META', gsi1sk: 'WEEK#1#META', week: '1' }];
     const page2 = [{ ...baseMeta, pk: 'SEASON#2024#TYPE#2#WEEK#2', sk: 'META', gsi1sk: 'WEEK#2#META', week: '2' }];

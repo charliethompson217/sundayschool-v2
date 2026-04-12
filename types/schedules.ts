@@ -11,7 +11,7 @@ import { PickKindSchema } from './submissions';
 const MetaBaseInputSchema = z.object({
   is_published: z.boolean(),
   submission_opens_at: z.string().datetime({ offset: true }).nullable(),
-  submission_closes_at: z.string().datetime({ offset: true }).nullable(),
+  submission_closes_at: z.string().datetime({ offset: true }),
   notes: z.string().nullable().optional(),
 });
 
@@ -69,7 +69,7 @@ const WeekMetaPayloadSchema = z.object({
   kind: PickKindSchema,
   is_published: z.boolean(),
   submission_opens_at: z.string().nullable(),
-  submission_closes_at: z.string().nullable(),
+  submission_closes_at: z.string(),
   notes: z.string().nullable().optional(),
   round_name: z.string().optional(),
   allow_straight_bets: z.boolean().optional(),
