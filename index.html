@@ -3,7 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
     <title>Sunday School</title>
+    <script>
+      (function () {
+        var stored = localStorage.getItem('mantine-color-scheme-value');
+        var scheme =
+          stored && stored !== 'auto'
+            ? stored
+            : window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
+        document.documentElement.setAttribute('data-mantine-color-scheme', scheme);
+        document.documentElement.style.backgroundColor = scheme === 'dark' ? '#000000' : '#ffffff';
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
