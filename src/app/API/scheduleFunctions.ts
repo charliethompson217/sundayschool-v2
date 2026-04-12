@@ -1,7 +1,7 @@
-import type { RegularSeasonGameResults } from '@/types/results';
 import type { WeekDetail, WeekMeta } from '@/types/schedules';
-import type { PastSubmissions, RegularSeasonPicksSubmission, ScheduledMatchup, WeekLineup } from '@/types/submissions';
+import type { ScheduledMatchup, WeekLineup } from '@/types/submissions';
 import type { TeamID } from '@/types/teams';
+
 import { authedFetch } from './authedFetch';
 
 export type SeasonPhase = 'regular' | 'playoffs';
@@ -18,7 +18,6 @@ export async function getYears(): Promise<number[]> {
 function weekDetailToWeekLineup(detail: WeekDetail): WeekLineup | null {
   const { meta, games } = detail;
 
-  // Week open/close is determined solely by the admin-configured submission window.
   // Weeks without a closes_at are not yet ready for submission — skip them.
   const kickoff = meta.submission_closes_at;
   if (!kickoff) return null;
@@ -49,7 +48,7 @@ function weekDetailToWeekLineup(detail: WeekDetail): WeekLineup | null {
 }
 
 export async function getRegularSeasonWeekMetas(year: number): Promise<WeekMeta[]> {
-  // season_type '2' is ESPN's numeric code for regular season (stored as-is in DynamoDB).
+  // season_type '2' is ESPN's numeric code for regular season.
   const params = new URLSearchParams({ year: String(year), seasonType: '2' });
   const res = await authedFetch(`/schedules?${params}`);
   if (!res.ok) throw new Error(`GET /schedules failed: ${res.status}`);
@@ -67,30 +66,39 @@ export async function getWeekLineup(weekMeta: WeekMeta): Promise<WeekLineup | nu
   return weekDetailToWeekLineup(detail);
 }
 
-// TODO: replace with real backend call
-export async function getRegularSeasonPicksSubmissions(
-  _year: number,
-): Promise<Record<number, RegularSeasonPicksSubmission>> {
-  return {};
+/** A wagerable game in a playoff week, with teams and a spread. */
+export type PlayoffWageableGame = {
+  gameId: string;
+  away: TeamID;
+  home: TeamID;
+  /** Points: negative means home is favored. e.g. -3.5 → home -3.5, away +3.5. */
+  spread: number;
+};
+
+export async function getPlayOffsWeekMetas(year: number): Promise<WeekMeta[]> {
+  // season_type '3' is ESPN's numeric code for post-season.
+  const params = new URLSearchParams({ year: String(year), seasonType: '3' });
+  const res = await authedFetch(`/schedules?${params}`);
+  if (!res.ok) throw new Error(`GET /schedules failed: ${res.status}`);
+  const data = (await res.json()) as { weeks: WeekMeta[] };
+  return data.weeks
+    .filter((w) => w.is_published && w.submission_closes_at)
+    .sort((a, b) => parseInt(a.week, 10) - parseInt(b.week, 10));
 }
 
-// TODO: replace with real backend call
-export async function submitRegularSeasonPicks(
-  _year: number,
-  _seasonType: number,
-  _week: number,
-  _submission: RegularSeasonPicksSubmission,
-): Promise<void> {
-  // no-op until submissions API is wired up
-  console.log('submitRegularSeasonPicks', _year, _seasonType, _week, _submission);
-}
+export async function getPlayOffsWeekGames(weekMeta: WeekMeta): Promise<PlayoffWageableGame[]> {
+  const { year, season_type, week } = weekMeta;
+  const res = await authedFetch(`/schedules/${year}/${season_type}/${week}`);
+  if (!res.ok) throw new Error(`GET /schedules/${year}/${season_type}/${week} failed: ${res.status}`);
+  const detail = (await res.json()) as WeekDetail;
 
-// TODO: replace with real backend call
-export async function getGameResults(): Promise<Record<number, RegularSeasonGameResults>> {
-  return {};
-}
-
-// TODO: replace with real backend call
-export async function getPastSubmissions(): Promise<PastSubmissions> {
-  return {};
+  return detail.games
+    .filter((g) => g.is_wagerable && g.espn)
+    .map((g) => ({
+      gameId: g.game_id,
+      away: g.espn!.away as TeamID,
+      home: g.espn!.home as TeamID,
+      // TODO: replace with real odds once available
+      spread: -3.5,
+    }));
 }

@@ -10,6 +10,7 @@ type ChooseTeamProps = {
   awayTeamID: TeamID;
   allowTie?: boolean;
   showReset?: boolean;
+  spreadLabels?: { home?: string; away?: string };
   value: TeamSelection;
   onChange: (value: TeamSelection) => void;
 };
@@ -18,17 +19,13 @@ type TeamButtonProps = {
   teamID: TeamID;
   selectedState: TeamSelection;
   opposingTeamID: TeamID;
+  spreadLabel?: string;
   onClick: () => void;
 };
 
 const WIDE_CUTOFF = 160;
 
-function TeamButton({ teamID, selectedState, opposingTeamID, onClick }: TeamButtonProps) {
-  console.log('==== TeamButton =======');
-  console.log('teamID', teamID);
-  console.log('selectedState', selectedState);
-  console.log('opposingTeamID', opposingTeamID);
-  console.log('=========================');
+function TeamButton({ teamID, selectedState, opposingTeamID, spreadLabel, onClick }: TeamButtonProps) {
   const logoSrc = getLogo(teamID);
   const teamName = getTeamName(teamID, 'mascot');
 
@@ -121,6 +118,18 @@ function TeamButton({ teamID, selectedState, opposingTeamID, onClick }: TeamButt
       >
         {teamName}
       </span>
+      {spreadLabel && (
+        <span
+          style={{
+            flexShrink: 0,
+            fontSize: 'var(--mantine-font-size-xs)',
+            textAlign: 'center',
+            opacity: 0.85,
+          }}
+        >
+          {spreadLabel}
+        </span>
+      )}
     </button>
   );
 }
@@ -130,6 +139,7 @@ export function ChooseTeam({
   awayTeamID,
   allowTie = false,
   showReset = false,
+  spreadLabels,
   value,
   onChange,
 }: ChooseTeamProps) {
@@ -190,6 +200,7 @@ export function ChooseTeam({
           teamID={homeTeamID}
           selectedState={value}
           opposingTeamID={awayTeamID}
+          spreadLabel={spreadLabels?.home}
           onClick={() => onChange(homeTeamID)}
         />
 
@@ -254,6 +265,7 @@ export function ChooseTeam({
           teamID={awayTeamID}
           selectedState={value}
           opposingTeamID={homeTeamID}
+          spreadLabel={spreadLabels?.away}
           onClick={() => onChange(awayTeamID)}
         />
       </Group>

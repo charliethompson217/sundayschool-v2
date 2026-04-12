@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react';
 import { Box, Group, Loader, Select, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 
-import { getGameResults, getPastSubmissions } from '@/app/API/functions';
+import { getGameResults } from '@/app/API/scoreFunctions';
+import { getEveryonesPastRegularSeasonSubmissions } from '@/app/API/submissionFunctions';
 import getLogo from '@/assets/logo-map';
 import type { GameResultWithScore } from '@/types/results';
 import type { GamePick } from '@/types/submissions';
@@ -138,7 +139,7 @@ function PickCell({ teamId, status, rank, isBonus }: PickCellProps) {
 export default function RegularSeasonWeeklyPicks() {
   const { data: pastSubmissions, isLoading: loadingSubs } = useQuery({
     queryKey: ['pastSubmissions'],
-    queryFn: getPastSubmissions,
+    queryFn: getEveryonesPastRegularSeasonSubmissions,
   });
 
   const { data: gameResults, isLoading: loadingResults } = useQuery({

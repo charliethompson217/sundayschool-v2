@@ -6,8 +6,27 @@ import {
   type WeekMeta,
   type WeekUpdateBody,
 } from '@/types/schedules';
+import type { RegularSeasonPicksSubmission, PlayOffsPicksSubmission } from '@/types/submissions';
 
 import { authedFetch } from './authedFetch';
+
+// ── Picks types ───────────────────────────────────────────────────────────────
+
+export interface AdminRegularPicksRecord {
+  userId: string;
+  kind: 'regular';
+  picks: RegularSeasonPicksSubmission;
+  submitted_at: string;
+}
+
+export interface AdminPlayoffPicksRecord {
+  userId: string;
+  kind: 'playoff';
+  picks: PlayOffsPicksSubmission;
+  submitted_at: string;
+}
+
+export type AdminPicksRecord = AdminRegularPicksRecord | AdminPlayoffPicksRecord;
 
 export async function getUsers(): Promise<User[]> {
   const res = await authedFetch('/admin/users');
@@ -51,6 +70,20 @@ export async function createScheduleWeek(
     throw new Error((data as { error?: string }).error ?? `Create schedule failed: ${res.status}`);
   }
   return WeekDetailSchema.parse(await res.json());
+}
+
+// ── Picks API ─────────────────────────────────────────────────────────────────
+
+/** Fetch every user's picks for a specific week. Admin only. */
+export async function getAdminWeekSubmissions(
+  year: string,
+  seasonType: string,
+  week: string,
+): Promise<Record<string, AdminPicksRecord>> {
+  const res = await authedFetch(`/admin/submissions/${year}/${seasonType}/${week}`);
+  if (!res.ok) throw new Error(`GET /admin/submissions failed: ${res.status}`);
+  const data = (await res.json()) as { submissions: Record<string, AdminPicksRecord> };
+  return data.submissions;
 }
 
 export async function updateScheduleWeek(

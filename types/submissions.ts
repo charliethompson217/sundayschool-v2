@@ -53,3 +53,33 @@ export type RegularSeasonAllUsersSubmissions = z.infer<typeof RegularSeasonAllUs
 // Past submissions across all closed weeks, keyed by week number.
 export const PastSubmissionsSchema = z.record(z.coerce.number(), RegularSeasonAllUsersSubmissionsSchema);
 export type PastSubmissions = z.infer<typeof PastSubmissionsSchema>;
+
+// ── Playoffs betting ──────────────────────────────────────────────────────────
+
+// One straight bet: pick home or away to cover the spread, plus an amount.
+export const PlayoffStraightBetSchema = z.object({
+  gameId: z.string(),
+  side: z.enum(['home', 'away']),
+  amount: z.number().int().positive(),
+});
+export type PlayoffStraightBet = z.infer<typeof PlayoffStraightBetSchema>;
+
+// One leg of a parlay.
+export const PlayoffParlayLegSchema = z.object({
+  gameId: z.string(),
+  side: z.enum(['home', 'away']),
+});
+export type PlayoffParlayLeg = z.infer<typeof PlayoffParlayLegSchema>;
+
+// A parlay bet: exactly parlay_leg_count legs with a combined wager.
+export const PlayoffParlayBetSchema = z.object({
+  legs: z.array(PlayoffParlayLegSchema).min(2),
+  amount: z.number().int().positive(),
+});
+export type PlayoffParlayBet = z.infer<typeof PlayoffParlayBetSchema>;
+
+export const PlayOffsPicksSubmissionSchema = z.object({
+  straightBets: z.array(PlayoffStraightBetSchema),
+  parlayBet: PlayoffParlayBetSchema.nullable(),
+});
+export type PlayOffsPicksSubmission = z.infer<typeof PlayOffsPicksSubmissionSchema>;

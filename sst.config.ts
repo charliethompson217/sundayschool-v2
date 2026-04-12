@@ -98,6 +98,30 @@ export default $config({
       },
     });
 
+    // ── DynamoDB: User picks ──────────────────────────────────────────────────
+    //
+    // Stores both regular season weekly picks and playoffs bets.
+    // One item per user per week — the full submission is stored as a JSON blob.
+    //
+    // Access patterns:
+    //   - Get/put own picks for a week   → PK: USER#<userId>,                       SK: SEASON#<year>#TYPE#<seasonType>#WEEK#<week>
+    //   - Get all picks for a user/year  → Query PK: USER#<userId>, SK begins_with SEASON#<year>
+    //   - Get all users' picks for week  → GSI1 PK: SEASON#<year>#TYPE#<seasonType>#WEEK#<week>
+    //                                       GSI1 SK: USER#<userId>
+
+    const picksTable = new sst.aws.Dynamo('PicksTable', {
+      fields: {
+        pk: 'string',
+        sk: 'string',
+        gsi1pk: 'string',
+        gsi1sk: 'string',
+      },
+      primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+      globalIndexes: {
+        gsi1: { hashKey: 'gsi1pk', rangeKey: 'gsi1sk' },
+      },
+    });
+
     // ── Internal ingest API (machine-to-machine only) ────────────────────────
 
     const ingestApi = new sst.aws.ApiGatewayV2('IngestApi');
@@ -149,6 +173,26 @@ export default $config({
     userApi.route('PUT /admin/schedules/{year}/{seasonType}/{week}', {
       handler: 'functions/routes/admin/schedules-update.handler',
       link: [schedulesTable, espnGames, usersTable, userPool, client],
+    });
+
+    userApi.route('GET /submissions/{year}/{seasonType}', {
+      handler: 'functions/routes/submissions/submissions-list.handler',
+      link: [picksTable, usersTable, userPool, client],
+    });
+
+    userApi.route('GET /submissions/{year}/{seasonType}/{week}', {
+      handler: 'functions/routes/submissions/submissions-get.handler',
+      link: [picksTable, usersTable, userPool, client],
+    });
+
+    userApi.route('PUT /submissions/{year}/{seasonType}/{week}', {
+      handler: 'functions/routes/submissions/submissions-put.handler',
+      link: [picksTable, schedulesTable, usersTable, userPool, client],
+    });
+
+    userApi.route('GET /admin/submissions/{year}/{seasonType}/{week}', {
+      handler: 'functions/routes/admin/submissions-get.handler',
+      link: [picksTable, usersTable, userPool, client],
     });
 
     // ── Public games API (no auth) ───────────────────────────────────────────

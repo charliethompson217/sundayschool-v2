@@ -5,7 +5,7 @@ import { IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, Icon
 import { useQuery } from '@tanstack/react-query';
 
 import RegularSeasonPicksForm from '@/components/submissions/RegularSeasonPicksForm';
-import { getRegularSeasonWeekMetas } from '@/app/API/functions';
+import { getRegularSeasonWeekMetas } from '@/app/API/scheduleFunctions';
 import { useRegularSeasonPicksSubmissions } from '@/app/hooks/useRegularSeasonPicksSubmissions';
 import type { RegularSeasonPicksSubmission } from '@/types/submissions';
 import type { WeekMeta } from '@/types/schedules';
@@ -98,7 +98,7 @@ export default function RegularSeason({ year, onSelectionChange }: RegularSeason
 
   function handleSubmit(submission: RegularSeasonPicksSubmission) {
     if (selectedWeek) {
-      return submitPicks(year, 1, parseInt(selectedWeek.week, 10), submission);
+      return submitPicks(year, parseInt(selectedWeek.season_type, 10), parseInt(selectedWeek.week, 10), submission);
     }
     return Promise.resolve();
   }

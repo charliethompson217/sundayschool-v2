@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getRegularSeasonPicksSubmissions, submitRegularSeasonPicks } from '@/app/API/functions';
+import { getRegularSeasonPicksSubmissions, submitRegularSeasonPicks } from '@/app/API/submissionFunctions';
 import type { RegularSeasonPicksSubmission } from '@/types/submissions';
 
 export const REGULAR_SEASON_SUBMISSIONS_QUERY_KEY = 'regularSeasonPicksSubmissions';

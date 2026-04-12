@@ -17,7 +17,7 @@ import {
 import { IconCircleCheck, IconLock } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 
-import { getWeekLineup } from '@/app/API/functions';
+import { getWeekLineup } from '@/app/API/scheduleFunctions';
 import type { WeekMeta } from '@/types/schedules';
 import type { GamePickDraft, RegularSeasonPicksSubmission, WeekLineup } from '@/types/submissions';
 import { getTeamName, type Matchup, type TeamID, type TeamSelection } from '@/types/teams';

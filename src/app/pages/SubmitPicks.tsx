@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import PlayOffs from '@/components/submissions/PlayOffs';
 import RegularSeason from '@/components/submissions/RegularSeason';
-import { getSeasonPhase, getYears } from '@/app/API/functions';
+import { getSeasonPhase, getYears } from '@/app/API/scheduleFunctions';
 
 type View = 'playoffs' | 'regular';
 
@@ -85,7 +85,7 @@ export default function SubmitPicksRoute() {
       {resolvedView === 'regular' ? (
         <RegularSeason year={resolvedYear} onSelectionChange={setWeekSelected} />
       ) : (
-        <PlayOffs />
+        <PlayOffs year={resolvedYear} onSelectionChange={setWeekSelected} />
       )}
     </Stack>
   );
