@@ -55,7 +55,7 @@ const makePicksRecord = (week: string) => ({
   week,
   kind: 'regular' as const,
   picks: {
-    rankedPicks: [{ matchup: ['KC', 'BAL'] as [string, string], winner: 'KC' }],
+    rankedPicks: [{ gameId: 'KC-BAL', winner: 'KC' }],
     filedPicks: [],
   },
   submitted_at: `2024-09-0${week}T16:00:00.000Z`,

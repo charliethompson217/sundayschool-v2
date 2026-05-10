@@ -19,8 +19,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { getWeekLineup } from '@/app/API/scheduleFunctions';
 import type { WeekMeta } from '@/types/schedules';
-import type { GamePickDraft, RegularSeasonPicksSubmission, WeekLineup } from '@/types/submissions';
-import { getTeamName, type Matchup, type TeamID, type TeamSelection } from '@/types/teams';
+import type { GamePickDraft, RegularSeasonPicksSubmission, ScheduledMatchup, WeekLineup } from '@/types/submissions';
+import { getTeamName, type TeamID, type TeamSelection } from '@/types/teams';
 
 import ChooseTeam from './ChooseTeam';
 import RankTeams from './RankTeams';
@@ -41,7 +41,11 @@ const STEP_DESCRIPTIONS: Record<FormStep, string> = {
   review: 'Double-check everything before locking in your picks.',
 };
 
-const matchupKey = ([away, home]: Matchup) => `${away}-${home}`;
+const draftFromMatchup = (sm: ScheduledMatchup, winner: TeamID | null = null): GamePickDraft => ({
+  gameId: sm.gameId,
+  matchup: sm.matchup,
+  winner,
+});
 
 type Props = {
   weekMeta: WeekMeta;
@@ -86,9 +90,8 @@ type InnerProps = {
 };
 
 function RegularSeasonPicksFormInner({ lineup, onSubmit, existingSubmission, readOnly = false }: InnerProps) {
-  const rankMatchups = lineup.scheduledMatchups.filter((sm) => sm.gameType === 'rank').map((sm) => sm.matchup);
-
-  const fileMatchups = lineup.scheduledMatchups.filter((sm) => sm.gameType === 'file').map((sm) => sm.matchup);
+  const rankScheduled = lineup.scheduledMatchups.filter((sm) => sm.gameType === 'rank');
+  const fileScheduled = lineup.scheduledMatchups.filter((sm) => sm.gameType === 'file');
 
   const isResubmission = existingSubmission !== undefined;
 
@@ -98,43 +101,55 @@ function RegularSeasonPicksFormInner({ lineup, onSubmit, existingSubmission, rea
 
   const [rankedDrafts, setRankedDrafts] = useState<GamePickDraft[]>(() => {
     if (existingSubmission) {
-      return existingSubmission.rankedPicks.map(({ matchup, winner }) => ({ matchup, winner }));
+      const byGameId = new Map(rankScheduled.map((sm) => [sm.gameId, sm]));
+      return existingSubmission.rankedPicks
+        .map(({ gameId, winner }) => {
+          const sm = byGameId.get(gameId);
+          return sm ? draftFromMatchup(sm, winner) : null;
+        })
+        .filter((d): d is GamePickDraft => d !== null);
     }
-    return rankMatchups.map((matchup) => ({ matchup, winner: null }));
+    return rankScheduled.map((sm) => draftFromMatchup(sm));
   });
 
   const [filedDrafts, setFiledDrafts] = useState<GamePickDraft[]>(() => {
     if (existingSubmission) {
-      return existingSubmission.filedPicks.map(({ matchup, winner }) => ({ matchup, winner }));
+      const byGameId = new Map(fileScheduled.map((sm) => [sm.gameId, sm]));
+      return existingSubmission.filedPicks
+        .map(({ gameId, winner }) => {
+          const sm = byGameId.get(gameId);
+          return sm ? draftFromMatchup(sm, winner) : null;
+        })
+        .filter((d): d is GamePickDraft => d !== null);
     }
-    return fileMatchups.map((matchup) => ({ matchup, winner: null }));
+    return fileScheduled.map((sm) => draftFromMatchup(sm));
   });
 
   function updateWinner(
     setter: React.Dispatch<React.SetStateAction<GamePickDraft[]>>,
-    matchup: Matchup,
+    gameId: string,
     selection: TeamSelection,
   ) {
     const winner = selection === 'TIE' ? null : selection;
-    setter((prev) => prev.map((d) => (matchupKey(d.matchup) === matchupKey(matchup) ? { ...d, winner } : d)));
+    setter((prev) => prev.map((d) => (d.gameId === gameId ? { ...d, winner } : d)));
   }
 
   function handleRankOrderChange(ranked: GamePickDraft[]) {
     setRankedDrafts((prev) => {
       // Re-map against prev to pick up any winner changes made after the initial render
-      const byKey = Object.fromEntries(prev.map((d) => [matchupKey(d.matchup), d]));
-      return ranked.map((d) => byKey[matchupKey(d.matchup)]);
+      const byGameId = Object.fromEntries(prev.map((d) => [d.gameId, d]));
+      return ranked.map((d) => byGameId[d.gameId]);
     });
   }
 
   async function handleSubmit() {
     const rankedPicks = rankedDrafts
       .filter((d): d is GamePickDraft & { winner: TeamID } => d.winner !== null)
-      .map(({ matchup, winner }) => ({ matchup, winner }));
+      .map(({ gameId, winner }) => ({ gameId, winner }));
 
     const filedPicks = filedDrafts
       .filter((d): d is GamePickDraft & { winner: TeamID } => d.winner !== null)
-      .map(({ matchup, winner }) => ({ matchup, winner }));
+      .map(({ gameId, winner }) => ({ gameId, winner }));
 
     if (rankedPicks.length !== rankedDrafts.length || filedPicks.length !== filedDrafts.length) {
       // TODO: surface a validation error
@@ -150,7 +165,7 @@ function RegularSeasonPicksFormInner({ lineup, onSubmit, existingSubmission, rea
   const rankPicksComplete = rankedDrafts.every((d) => d.winner !== null);
   const filePicksComplete = filedDrafts.every((d) => d.winner !== null);
 
-  const totalSteps = fileMatchups.length > 0 ? 4 : 3;
+  const totalSteps = fileScheduled.length > 0 ? 4 : 3;
   const stepNum: number = step === 'review' ? totalSteps : (step as number);
 
   if (submitted) {
@@ -193,13 +208,13 @@ function RegularSeasonPicksFormInner({ lineup, onSubmit, existingSubmission, rea
       {step === 1 && (
         <Stack>
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg" verticalSpacing="xl">
-            {rankedDrafts.map(({ matchup, winner }) => (
-              <Paper key={matchupKey(matchup)} p="sm" radius="md">
+            {rankedDrafts.map(({ gameId, matchup, winner }) => (
+              <Paper key={gameId} p="sm" radius="md">
                 <ChooseTeam
                   awayTeamID={matchup[0]}
                   homeTeamID={matchup[1]}
                   value={winner}
-                  onChange={(v) => updateWinner(setRankedDrafts, matchup, v)}
+                  onChange={(v) => updateWinner(setRankedDrafts, gameId, v)}
                 />
               </Paper>
             ))}
@@ -219,8 +234,8 @@ function RegularSeasonPicksFormInner({ lineup, onSubmit, existingSubmission, rea
             <Button variant="default" onClick={() => setStep(1)}>
               Back
             </Button>
-            <Button onClick={() => (fileMatchups.length > 0 ? setStep(3) : setStep('review'))}>
-              {fileMatchups.length > 0 ? 'Next: Bonus picks' : 'Next: Review'}
+            <Button onClick={() => (fileScheduled.length > 0 ? setStep(3) : setStep('review'))}>
+              {fileScheduled.length > 0 ? 'Next: Bonus picks' : 'Next: Review'}
             </Button>
           </Group>
         </Stack>
@@ -229,13 +244,13 @@ function RegularSeasonPicksFormInner({ lineup, onSubmit, existingSubmission, rea
       {step === 3 && (
         <Stack>
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="xl">
-            {filedDrafts.map(({ matchup, winner }) => (
-              <Paper key={matchupKey(matchup)} p="sm" radius="md">
+            {filedDrafts.map(({ gameId, matchup, winner }) => (
+              <Paper key={gameId} p="sm" radius="md">
                 <ChooseTeam
                   awayTeamID={matchup[0]}
                   homeTeamID={matchup[1]}
                   value={winner}
-                  onChange={(v) => updateWinner(setFiledDrafts, matchup, v)}
+                  onChange={(v) => updateWinner(setFiledDrafts, gameId, v)}
                 />
               </Paper>
             ))}
@@ -262,13 +277,13 @@ function RegularSeasonPicksFormInner({ lineup, onSubmit, existingSubmission, rea
                 No picks submitted.
               </Text>
             ) : (
-              rankedDrafts.map(({ matchup, winner }, i) => {
+              rankedDrafts.map(({ gameId, matchup, winner }, i) => {
                 if (!winner) return null;
                 const [teamA, teamB] = matchup;
                 const loserID = winner === teamA ? teamB : teamA;
                 const rank = rankedDrafts.length - i;
                 return (
-                  <Group key={matchupKey(matchup)} gap="sm" align="center">
+                  <Group key={gameId} gap="sm" align="center">
                     <Badge size="lg" radius="sm" color="green" w={32} p={0} ta="center">
                       {rank}
                     </Badge>
@@ -298,12 +313,12 @@ function RegularSeasonPicksFormInner({ lineup, onSubmit, existingSubmission, rea
                     No picks submitted.
                   </Text>
                 ) : (
-                  filedDrafts.map(({ matchup, winner }) => {
+                  filedDrafts.map(({ gameId, matchup, winner }) => {
                     if (!winner) return null;
                     const [teamA, teamB] = matchup;
                     const loserID = winner === teamA ? teamB : teamA;
                     return (
-                      <Group key={matchupKey(matchup)} gap="sm" align="center">
+                      <Group key={gameId} gap="sm" align="center">
                         <Badge size="lg" radius="sm" color="blue" w={32} p={0} ta="center">
                           W
                         </Badge>
@@ -325,7 +340,7 @@ function RegularSeasonPicksFormInner({ lineup, onSubmit, existingSubmission, rea
 
           {!readOnly && (
             <Group justify="space-between">
-              <Button variant="default" onClick={() => setStep(fileMatchups.length > 0 ? 3 : 2)}>
+              <Button variant="default" onClick={() => setStep(fileScheduled.length > 0 ? 3 : 2)}>
                 Back
               </Button>
               <Button onClick={handleSubmit} loading={isSubmitting} disabled={isSubmitting}>

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { MatchupSchema, TeamIDSchema } from './teams';
+import { MatchupSchema, TeamIDSchema } from './teams.ts';
 
 export const PickKindSchema = z.enum(['regular', 'playoff']);
 export type PickKind = z.infer<typeof PickKindSchema>;
@@ -11,6 +11,7 @@ export const GameTypeSchema = z.enum(['rank', 'file']);
 export type GameType = z.infer<typeof GameTypeSchema>;
 
 export const ScheduledMatchupSchema = z.object({
+  gameId: z.string(),
   matchup: MatchupSchema,
   gameType: GameTypeSchema,
 });
@@ -28,13 +29,15 @@ export type RegularSeasonLineups = z.infer<typeof RegularSeasonLineupsSchema>;
 
 // A user's confirmed pick — no tie, winner required.
 export const GamePickSchema = z.object({
-  matchup: MatchupSchema,
+  gameId: z.string(),
   winner: TeamIDSchema,
 });
 export type GamePick = z.infer<typeof GamePickSchema>;
 
 // One pick while the user is still filling out — winner is null until chosen.
+// Includes the matchup for in-form display; only gameId + winner are submitted.
 export const GamePickDraftSchema = z.object({
+  gameId: z.string(),
   matchup: MatchupSchema,
   winner: z.union([TeamIDSchema, z.null()]),
 });
@@ -42,9 +45,10 @@ export type GamePickDraft = z.infer<typeof GamePickDraftSchema>;
 
 // Validated regular season weekly picks submission.
 // rankedPicks — 'rank' games in confidence order: [0] = most confident.
+//               Empty when a player missed the rank deadline but still filed a pick.
 // filedPicks  — 'file' games in any order; confidence is not tracked.
 export const RegularSeasonPicksSubmissionSchema = z.object({
-  rankedPicks: z.array(GamePickSchema).min(1),
+  rankedPicks: z.array(GamePickSchema),
   filedPicks: z.array(GamePickSchema),
 });
 export type RegularSeasonPicksSubmission = z.infer<typeof RegularSeasonPicksSubmissionSchema>;
@@ -59,10 +63,10 @@ export type PastSubmissions = z.infer<typeof PastSubmissionsSchema>;
 
 // ── Playoffs betting ──────────────────────────────────────────────────────────
 
-// One straight bet: pick home or away to cover the spread, plus an amount.
+// One straight bet: pick a team to cover the spread, plus an amount.
 export const PlayoffStraightBetSchema = z.object({
   gameId: z.string(),
-  side: z.enum(['home', 'away']),
+  winner: TeamIDSchema,
   amount: z.number().int().positive(),
 });
 export type PlayoffStraightBet = z.infer<typeof PlayoffStraightBetSchema>;
@@ -70,7 +74,7 @@ export type PlayoffStraightBet = z.infer<typeof PlayoffStraightBetSchema>;
 // One leg of a parlay.
 export const PlayoffParlayLegSchema = z.object({
   gameId: z.string(),
-  side: z.enum(['home', 'away']),
+  winner: TeamIDSchema,
 });
 export type PlayoffParlayLeg = z.infer<typeof PlayoffParlayLegSchema>;
 

@@ -55,7 +55,7 @@ const PICKS_RECORD = {
   week: '1',
   kind: 'regular' as const,
   picks: {
-    rankedPicks: [{ matchup: ['KC', 'BAL'] as [string, string], winner: 'KC' }],
+    rankedPicks: [{ gameId: 'KC-BAL', winner: 'KC' }],
     filedPicks: [],
   },
   submitted_at: '2024-09-06T16:00:00.000Z',

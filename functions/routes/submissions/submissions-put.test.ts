@@ -88,12 +88,12 @@ const NULL_OPENS_AT_META = {
 };
 
 const VALID_REGULAR_PICKS = {
-  rankedPicks: [{ matchup: ['KC', 'BAL'] as [string, string], winner: 'KC' }],
+  rankedPicks: [{ gameId: 'KC-BAL', winner: 'KC' }],
   filedPicks: [],
 };
 
 const VALID_PLAYOFF_PICKS = {
-  straightBets: [{ gameId: 'g1', side: 'home' as const, amount: 10 }],
+  straightBets: [{ gameId: 'g1', winner: 'KC' as const, amount: 10 }],
   parlayBet: null,
 };
 
@@ -273,7 +273,7 @@ describe('submissions-put handler', () => {
   it('returns 422 for invalid regular season picks', async () => {
     const res = await invoke(
       { year: '2024', seasonType: '2', week: '1' },
-      { kind: 'regular', picks: { rankedPicks: [], filedPicks: [] } },
+      { kind: 'regular', picks: { rankedPicks: [{ gameId: 'KC-BAL' }], filedPicks: [] } },
     );
     expect(res.statusCode).toBe(422);
     expect(body(res).error).toMatch(/[Ii]nvalid/);

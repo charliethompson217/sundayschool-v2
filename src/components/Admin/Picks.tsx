@@ -117,8 +117,8 @@ function RegularPicksCard({
   submittedAt,
 }: {
   name: string;
-  rankedPicks: { matchup: [TeamID, TeamID]; winner: TeamID }[];
-  filedPicks: { matchup: [TeamID, TeamID]; winner: TeamID }[];
+  rankedPicks: { gameId: string; winner: TeamID }[];
+  filedPicks: { gameId: string; winner: TeamID }[];
   submittedAt: string;
 }) {
   const n = rankedPicks.length;
@@ -197,23 +197,19 @@ function PlayoffPicksCard({
   gameMap,
 }: {
   name: string;
-  straightBets: { gameId: string; side: 'home' | 'away'; amount: number }[];
-  parlayBet: { legs: { gameId: string; side: 'home' | 'away' }[]; amount: number } | null;
+  straightBets: { gameId: string; winner: TeamID; amount: number }[];
+  parlayBet: { legs: { gameId: string; winner: TeamID }[]; amount: number } | null;
   submittedAt: string;
   gameMap: GameMap;
 }) {
   const totalWagered = straightBets.reduce((s, b) => s + b.amount, 0) + (parlayBet?.amount ?? 0);
 
-  function teamForSide(gameId: string, side: 'home' | 'away'): TeamID | null {
+  function opponentForTeam(gameId: string, team: TeamID): TeamID | null {
     const g = gameMap[gameId];
     if (!g) return null;
-    return side === 'home' ? g.home : g.away;
-  }
-
-  function opponentForSide(gameId: string, side: 'home' | 'away'): TeamID | null {
-    const g = gameMap[gameId];
-    if (!g) return null;
-    return side === 'home' ? g.away : g.home;
+    if (team === g.home) return g.away;
+    if (team === g.away) return g.home;
+    return null;
   }
 
   const hasAnyBet = straightBets.length > 0 || !!parlayBet;
@@ -254,15 +250,15 @@ function PlayoffPicksCard({
               Straight bets
             </Text>
             {straightBets.map((bet) => {
-              const picked = teamForSide(bet.gameId, bet.side);
-              const opp = opponentForSide(bet.gameId, bet.side);
+              const picked = bet.winner;
+              const opp = opponentForTeam(bet.gameId, bet.winner);
               return (
                 <Group key={bet.gameId} justify="space-between" align="center" wrap="nowrap">
                   <Group gap="xs" wrap="nowrap">
-                    {picked && <TeamCell teamId={picked} />}
+                    <TeamCell teamId={picked} />
                     <Stack gap={0}>
                       <Text size="sm" fw={600}>
-                        {picked ? getTeamName(picked, 'mascot') : bet.gameId}
+                        {getTeamName(picked, 'mascot')}
                       </Text>
                       {opp && (
                         <Text size="xs" c="dimmed">
@@ -294,17 +290,17 @@ function PlayoffPicksCard({
                 </Badge>
               </Group>
               {parlayBet.legs.map((leg) => {
-                const picked = teamForSide(leg.gameId, leg.side);
-                const opp = opponentForSide(leg.gameId, leg.side);
+                const picked = leg.winner;
+                const opp = opponentForTeam(leg.gameId, leg.winner);
                 return (
                   <Group key={leg.gameId} gap="xs" wrap="nowrap">
                     <Badge size="xs" radius="sm" color="violet" variant="light" w={18} p={0} ta="center">
                       +
                     </Badge>
-                    {picked && <TeamCell teamId={picked} />}
+                    <TeamCell teamId={picked} />
                     <Stack gap={0}>
                       <Text size="sm" fw={600}>
-                        {picked ? getTeamName(picked, 'mascot') : leg.gameId}
+                        {getTeamName(picked, 'mascot')}
                       </Text>
                       {opp && (
                         <Text size="xs" c="dimmed">

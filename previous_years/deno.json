@@ -1,0 +1,8 @@
+{
+  "nodeModulesDir": "auto",
+  "imports": {
+    "xlsx": "npm:xlsx@0.18.5",
+    "@std/path": "jsr:@std/path@1",
+    "zod": "npm:zod"
+  }
+}

@@ -35,7 +35,7 @@ export function RankTeams({ matchups, value, onChange }: RankTeamsProps) {
   }, [colorScheme]);
 
   const matchupsKey = matchups
-    .map((d) => d.matchup.join('-'))
+    .map((d) => d.gameId)
     .sort()
     .join(',');
 

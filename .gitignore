@@ -42,3 +42,10 @@ __pycache__
 .env.*
 
 !.env.example
+
+# misc 
+rules.txt
+
+# previous years
+previous_years/split_data
+previous_years/clean_data

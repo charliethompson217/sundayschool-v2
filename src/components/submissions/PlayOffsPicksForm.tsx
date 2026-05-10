@@ -22,7 +22,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getPlayOffsWeekGames, type PlayoffWageableGame } from '@/app/API/scheduleFunctions';
 import type { WeekMeta } from '@/types/schedules';
 import type { PlayOffsPicksSubmission, PlayoffParlayLeg, PlayoffStraightBet } from '@/types/submissions';
-import { getTeamName } from '@/types/teams';
+import { getTeamName, type TeamID } from '@/types/teams';
 
 import ChooseTeam from './ChooseTeam';
 
@@ -37,7 +37,7 @@ function formatSpread(points: number): string {
 
 type StraightBetDraft = {
   enabled: boolean;
-  side: 'home' | 'away' | null;
+  winner: TeamID | null;
   amount: number | '';
 };
 
@@ -82,10 +82,9 @@ function StraightBetCard({
             <ChooseTeam
               homeTeamID={game.home}
               awayTeamID={game.away}
-              value={draft.side === 'home' ? game.home : draft.side === 'away' ? game.away : null}
+              value={draft.winner}
               onChange={(v) => {
-                if (v === game.home) onChange({ ...draft, side: 'home' });
-                else if (v === game.away) onChange({ ...draft, side: 'away' });
+                if (v === game.home || v === game.away) onChange({ ...draft, winner: v });
               }}
               spreadLabels={{
                 home: formatSpread(game.spread),
@@ -113,7 +112,7 @@ function StraightBetCard({
 
 type ParlayLegDraft = {
   selected: boolean;
-  side: 'home' | 'away' | null;
+  winner: TeamID | null;
 };
 
 function ParlayLegRow({
@@ -138,7 +137,7 @@ function ParlayLegRow({
                 onChange({
                   ...draft,
                   selected: e.currentTarget.checked,
-                  side: e.currentTarget.checked ? draft.side : null,
+                  winner: e.currentTarget.checked ? draft.winner : null,
                 })
               }
             />
@@ -156,10 +155,9 @@ function ParlayLegRow({
           <ChooseTeam
             homeTeamID={game.home}
             awayTeamID={game.away}
-            value={draft.side === 'home' ? game.home : draft.side === 'away' ? game.away : null}
+            value={draft.winner}
             onChange={(v) => {
-              if (v === game.home) onChange({ ...draft, side: 'home' });
-              else if (v === game.away) onChange({ ...draft, side: 'away' });
+              if (v === game.home || v === game.away) onChange({ ...draft, winner: v });
             }}
             spreadLabels={{
               home: formatSpread(game.spread),
@@ -228,8 +226,8 @@ function initStraightBetDrafts(
       return [
         g.gameId,
         existing
-          ? { enabled: true, side: existing.side, amount: existing.amount }
-          : { enabled: false, side: null, amount: '' },
+          ? { enabled: true, winner: existing.winner, amount: existing.amount }
+          : { enabled: false, winner: null, amount: '' },
       ];
     }),
   );
@@ -242,15 +240,14 @@ function initParlayLegDrafts(
   return Object.fromEntries(
     games.map((g) => {
       const leg = existingSubmission?.parlayBet?.legs.find((l) => l.gameId === g.gameId);
-      return [g.gameId, { selected: !!leg, side: leg?.side ?? null }];
+      return [g.gameId, { selected: !!leg, winner: leg?.winner ?? null }];
     }),
   );
 }
 
-function betSideLabel(game: PlayoffWageableGame, side: 'home' | 'away'): string {
-  const teamId = side === 'home' ? game.home : game.away;
-  const spread = side === 'home' ? game.spread : -game.spread;
-  return `${getTeamName(teamId, 'mascot')} ${formatSpread(spread)}`;
+function betWinnerLabel(game: PlayoffWageableGame, winner: TeamID): string {
+  const spread = winner === game.home ? game.spread : -game.spread;
+  return `${getTeamName(winner, 'mascot')} ${formatSpread(spread)}`;
 }
 
 function PlayOffsPicksFormInner({
@@ -292,18 +289,18 @@ function PlayOffsPicksFormInner({
   // Parlay validation
   const selectedParlayLegs = Object.entries(parlayDrafts).filter(([, d]) => d.selected);
   const parlayLegCountMet = selectedParlayLegs.length === parlayLegCount;
-  const parlayAllSidesPicked = selectedParlayLegs.every(([, d]) => d.side !== null);
+  const parlayAllSidesPicked = selectedParlayLegs.every(([, d]) => d.winner !== null);
 
   function buildSubmission(): PlayOffsPicksSubmission | null {
     const straightBets: PlayoffStraightBet[] = [];
 
     for (const [gameId, d] of Object.entries(straightDrafts)) {
       if (!d.enabled) continue;
-      if (d.side === null || typeof d.amount !== 'number' || d.amount <= 0) {
-        setError('Please fill in all active straight bets (pick a side and enter an amount).');
+      if (d.winner === null || typeof d.amount !== 'number' || d.amount <= 0) {
+        setError('Please fill in all active straight bets (pick a team and enter an amount).');
         return null;
       }
-      straightBets.push({ gameId, side: d.side, amount: d.amount });
+      straightBets.push({ gameId, winner: d.winner, amount: d.amount });
     }
 
     let parlayBet = null;
@@ -313,7 +310,7 @@ function PlayOffsPicksFormInner({
         return null;
       }
       if (!parlayAllSidesPicked) {
-        setError('Please pick a side for every parlay leg.');
+        setError('Please pick a team for every parlay leg.');
         return null;
       }
       if (typeof parlayAmount !== 'number' || parlayAmount <= 0) {
@@ -322,7 +319,7 @@ function PlayOffsPicksFormInner({
       }
       const legs: PlayoffParlayLeg[] = selectedParlayLegs.map(([gameId, d]) => ({
         gameId,
-        side: d.side!,
+        winner: d.winner!,
       }));
       parlayBet = { legs, amount: parlayAmount };
     }
@@ -446,7 +443,7 @@ function PlayOffsPicksFormInner({
                         {getTeamName(game.away, 'mascot')} @ {getTeamName(game.home, 'mascot')}
                       </Text>
                       <Text size="sm" fw={600}>
-                        {betSideLabel(game, bet.side)}
+                        {betWinnerLabel(game, bet.winner)}
                       </Text>
                     </Stack>
                     <Badge variant="light" color="blue" size="lg">
@@ -480,9 +477,9 @@ function PlayOffsPicksFormInner({
                         <Badge size="sm" radius="sm" color="violet" variant="light" w={20} p={0} ta="center">
                           +
                         </Badge>
-                        <Text size="sm">{betSideLabel(game, leg.side)}</Text>
+                        <Text size="sm">{betWinnerLabel(game, leg.winner)}</Text>
                         <Text size="xs" c="dimmed">
-                          vs {getTeamName(leg.side === 'home' ? game.away : game.home, 'mascot')}
+                          vs {getTeamName(leg.winner === game.home ? game.away : game.home, 'mascot')}
                         </Text>
                       </Group>
                     );

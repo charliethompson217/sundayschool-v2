@@ -53,9 +53,9 @@ function weekDetailToWeekLineup(detail: WeekDetail): WeekLineup | null {
     if (!awayId || !homeId) continue;
 
     if (game.include_in_rank) {
-      scheduledMatchups.push({ matchup: [awayId, homeId], gameType: 'rank' });
+      scheduledMatchups.push({ gameId: game.game_id, matchup: [awayId, homeId], gameType: 'rank' });
     } else if (game.include_in_file) {
-      scheduledMatchups.push({ matchup: [awayId, homeId], gameType: 'file' });
+      scheduledMatchups.push({ gameId: game.game_id, matchup: [awayId, homeId], gameType: 'file' });
     }
   }
 
